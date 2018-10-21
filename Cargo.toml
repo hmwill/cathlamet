@@ -2,5 +2,9 @@
 name = "cathlamet"
 version = "0.1.0"
 authors = ["Hans-Martin Will <hwill@acm.org>"]
+description = "Tokio bindings for Linux kernel AIO"
+documentation = "https://docs.rs/cathlamet/"
+repository= "https://github.com/hmwill/cathlamet"
+license = "MIT"
 
 [dependencies]
