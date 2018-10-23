@@ -1,0 +1,3 @@
+license_template_path = "LICENSE.template"
+unstable_features = true
+edition = "2018"

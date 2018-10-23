@@ -20,10 +20,16 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
+#![feature(await_macro, async_await, futures_api)]
+
+#[macro_use]
+extern crate tokio;
+
+fn main() {
+    // And we are async...
+    tokio::run_async(
+        async {
+            println!("Hello");
+        },
+    );
 }
