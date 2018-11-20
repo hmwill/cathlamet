@@ -20,46 +20,29 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-extern crate libc;
+//! # Router
+//! 
+//! `router` is the main program for a request router node process within a cathlamet cluster.
 
-#[macro_use]
-extern crate bitflags;
+#![feature(await_macro, async_await, futures_api)]
 
-#[macro_use]
-extern crate error_chain;
-
-#[macro_use]
-extern crate log;
-extern crate pretty_env_logger;
-
-#[macro_use]
+extern crate cathlamet;
+extern crate clap;
 extern crate may;
 
-extern crate bytes;
-extern crate httparse;
+use clap::{Arg, App, SubCommand};
 
-#[macro_use]
-extern crate serde;
-extern crate serde_json;
+fn main() {
+    let matches = App::new("Router")
+                        .version(cathlamet::VERSION)
+                        .author(cathlamet::AUTHOR)
+                        .about(cathlamet::DESCRIPTION)
+                        .get_matches();
+    println!("Cathlamet Request Router Node");
 
-pub mod common;
-pub mod service;
-pub mod sql;
+    may::config().set_io_workers(4);
 
-pub static VERSION: &'static str = env!("CARGO_PKG_VERSION");
-pub static AUTHOR: &'static str = env!("CARGO_PKG_AUTHORS");
-pub static NAME: &'static str = env!("CARGO_PKG_NAME");
-pub static DESCRIPTION: &'static str = env!("CARGO_PKG_DESCRIPTION");
-
-pub mod errors {
-    // Create the Error, ErrorKind, ResultExt, and Result types
-    error_chain!{}
+    let mut server = cathlamet::service::HttpService::new("127.0.0.1:8080");
+    server.run();
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}

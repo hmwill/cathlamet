@@ -20,46 +20,22 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-extern crate libc;
+//! # cli
+//! 
+//! `cli` is a command line client for a cathlamet cluster.
 
-#[macro_use]
-extern crate bitflags;
+#![feature(await_macro, async_await, futures_api)]
 
-#[macro_use]
-extern crate error_chain;
+extern crate cathlamet;
+extern crate clap;
 
-#[macro_use]
-extern crate log;
-extern crate pretty_env_logger;
+use clap::{Arg, App, SubCommand};
 
-#[macro_use]
-extern crate may;
-
-extern crate bytes;
-extern crate httparse;
-
-#[macro_use]
-extern crate serde;
-extern crate serde_json;
-
-pub mod common;
-pub mod service;
-pub mod sql;
-
-pub static VERSION: &'static str = env!("CARGO_PKG_VERSION");
-pub static AUTHOR: &'static str = env!("CARGO_PKG_AUTHORS");
-pub static NAME: &'static str = env!("CARGO_PKG_NAME");
-pub static DESCRIPTION: &'static str = env!("CARGO_PKG_DESCRIPTION");
-
-pub mod errors {
-    // Create the Error, ErrorKind, ResultExt, and Result types
-    error_chain!{}
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
+fn main() {
+    let matches = App::new("CLI")
+                        .version(cathlamet::VERSION)
+                        .author(cathlamet::AUTHOR)
+                        .about(cathlamet::DESCRIPTION)
+                        .get_matches();
+    println!("Cathlamet Client");
 }
