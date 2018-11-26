@@ -20,47 +20,44 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-extern crate libc;
+/// Interface specification for a parser handler.
+pub trait Handler {
+    /// Called when a JSON object begins
+    fn begin_object(&mut self);
 
-#[macro_use]
-extern crate bitflags;
+    /// Called when a JSON object ends
+    fn end_object(&mut self);
 
-#[macro_use]
-extern crate error_chain;
+    /// Called when an object key has been parsed
+    fn key(&mut self, key: &str);
 
-#[macro_use]
-extern crate log;
-extern crate pretty_env_logger;
+    /// Called when a JSON array begins
+    fn begin_array(&mut self);
 
-#[macro_use]
-extern crate may;
+    /// Called when a JSON array ends
+    fn end_array(&mut self);
 
-extern crate bytes;
-extern crate http_muncher;
+    /// Called for a Boolean value ('true' or 'false')
+    fn bool_value(&mut self, value: bool);
 
-#[macro_use]
-extern crate serde;
-extern crate serde_json;
+    /// Called for a string value
+    fn string_value(&mut self, value: String);
 
-pub mod common;
-pub mod core;
-pub mod service;
-pub mod sql;
+    /// Called for a number value
+    fn number_value(&mut self, value: f64);
 
-pub static VERSION: &'static str = env!("CARGO_PKG_VERSION");
-pub static AUTHOR: &'static str = env!("CARGO_PKG_AUTHORS");
-pub static NAME: &'static str = env!("CARGO_PKG_NAME");
-pub static DESCRIPTION: &'static str = env!("CARGO_PKG_DESCRIPTION");
-
-pub mod errors {
-    // Create the Error, ErrorKind, ResultExt, and Result types
-    error_chain!{}
+    /// Called for a 'null' literal
+    fn null_value(&mut self);
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+pub struct Parser<H> {
+    handler: H
+}
+
+impl <H> Parser<H> {
+    pub fn new(handler: H) -> Parser<H> {
+        Parser {
+            handler
+        }
     }
 }

@@ -1,0 +1,106 @@
+// MIT License
+//
+// Copyright (c) 2018 Hans-Martin Will
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+use std::str::FromStr;
+
+use crate::core::types;
+
+grammar;
+
+pub Type: types::Type = {
+    Unit => types::Type { kind: types::Kind::Unit },
+    <p: Primitive> => types::Type { kind: types::Kind::Primitive(p) },
+    <a: Array> => types::Type { kind: a },
+    <list: Tuple> => types::Type { kind: types::Kind::Tuple(list) },
+    <list: Struct> => types::Type { kind: types::Kind::Struct(list) },
+    <list: Enum> => types::Type { kind: types::Kind::Enum(list) },
+};
+
+Unit: () = {
+    "(" ")" => (),
+};
+
+Primitive: types::Primitive = {
+    "bool" => types::Primitive::Bool,
+    "char" => types::Primitive::Char,
+    "u8" => types::Primitive::U8,
+    "u16" => types::Primitive::U16,
+    "u32" => types::Primitive::U32,
+    "u64" => types::Primitive::U64,
+    "u128" => types::Primitive::U128,
+    "i8" => types::Primitive::I8,
+    "i16" => types::Primitive::I16,
+    "i32" => types::Primitive::I32,
+    "i64" => types::Primitive::I64,
+    "i128" => types::Primitive::I128,
+    "f32" => types::Primitive::F32,
+    "f64" => types::Primitive::F64,
+};
+
+
+Array: types::Kind = {
+    "string" => types::Kind::String,
+};
+
+Tuple: types::Components = {
+    "(" <list: TypeList> ")" => list,
+};
+
+TypeList: types::Components = {
+    <t: Type> => vec![Box::new(t)],
+    <list: TypeList> "," <t: Type> => super::append(list, Box::new(t)),
+};
+
+Struct: types::Fields = {
+    "struct" "{" <list: FieldList> ","? "}" => list,
+};
+
+FieldList: types::Fields = {
+    <f: Field> => vec![f],
+    <list: FieldList> "," <f: Field> => super::append(list, f),
+};
+
+Field: types::Field = {
+    <id: IDENT> ":" <t: Type> => types::Field { label: id, typ: Box::new(t) },
+};
+
+Enum: types::Cases= {
+    "enum" "{" <list: CaseList> ","? "}" => list,
+};
+
+CaseList: types::Cases = {
+    <c: Case> => vec![c],
+    <list: CaseList> "," <c: Case> => super::append(list, c),
+};
+
+Case: types::Case = {
+    <id: IDENT> ":" <t: Type> => types::Case { label: id, typ: Box::new(t) },
+};
+
+INT: usize = {
+    r"[0-9]+" => usize::from_str(<>).unwrap(),
+};
+
+IDENT: String = {
+    r"[A-Za-z_][A-Za-z0-9_]*" => String::from_str(<>).unwrap(),
+};
+

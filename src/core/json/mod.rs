@@ -20,47 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-extern crate libc;
-
-#[macro_use]
-extern crate bitflags;
-
-#[macro_use]
-extern crate error_chain;
-
-#[macro_use]
-extern crate log;
-extern crate pretty_env_logger;
-
-#[macro_use]
-extern crate may;
-
-extern crate bytes;
-extern crate http_muncher;
-
-#[macro_use]
-extern crate serde;
-extern crate serde_json;
-
-pub mod common;
-pub mod core;
-pub mod service;
-pub mod sql;
-
-pub static VERSION: &'static str = env!("CARGO_PKG_VERSION");
-pub static AUTHOR: &'static str = env!("CARGO_PKG_AUTHORS");
-pub static NAME: &'static str = env!("CARGO_PKG_NAME");
-pub static DESCRIPTION: &'static str = env!("CARGO_PKG_DESCRIPTION");
-
-pub mod errors {
-    // Create the Error, ErrorKind, ResultExt, and Result types
-    error_chain!{}
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+pub mod decoder;
+pub mod encoder;
+pub mod parser;
+pub mod tokenizer;
