@@ -20,5 +20,5 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-//! `common` is a module collecting utility types and functions that are shared 
+//! `common` is a module collecting utility types and functions that are shared
 //! across components inside a Cathlamet cluster.

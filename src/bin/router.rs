@@ -21,7 +21,7 @@
 // SOFTWARE.
 
 //! # Router
-//! 
+//!
 //! `router` is the main program for a request router node process within a cathlamet cluster.
 
 #![feature(await_macro, async_await, futures_api)]
@@ -38,7 +38,7 @@ extern crate may;
 extern crate nix;
 extern crate pretty_env_logger;
 
-use clap::{Arg, App, SubCommand};
+use clap::{App, Arg, SubCommand};
 
 use std::sync::atomic;
 
@@ -52,10 +52,10 @@ fn main() {
     pretty_env_logger::init();
 
     let matches = App::new("Router")
-                        .version(cathlamet::VERSION)
-                        .author(cathlamet::AUTHOR)
-                        .about(cathlamet::DESCRIPTION)
-                        .get_matches();
+        .version(cathlamet::VERSION)
+        .author(cathlamet::AUTHOR)
+        .about(cathlamet::DESCRIPTION)
+        .get_matches();
     info!("Cathlamet Request Router Node");
 
     may::config().set_io_workers(4);
@@ -65,4 +65,3 @@ fn main() {
     info!("Starting HTTP service listening at {}", address);
     server.run();
 }
-

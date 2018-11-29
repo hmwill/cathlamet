@@ -164,7 +164,8 @@ mod tests {
                 }
             }
             "#,
-            ).unwrap();
+            )
+            .unwrap();
 
         let first = types::Path::resolve_qualified_name(&typ, "first").unwrap();
         let last = types::Path::resolve_qualified_name(&typ, "last").unwrap();

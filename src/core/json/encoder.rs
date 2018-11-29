@@ -347,7 +347,8 @@ fn emitter_for_type(prefix: types::Path, typ: &types::Type) -> Box<JsonEmitter> 
                 .map(|(index, typ)| {
                     let component_path = prefix.with_component(index);
                     emitter_for_type(component_path, typ)
-                }).collect();
+                })
+                .collect();
             Box::new(EmitTuple {
                 components: emitters,
             })
@@ -366,7 +367,8 @@ fn emitter_for_type(prefix: types::Path, typ: &types::Type) -> Box<JsonEmitter> 
                         field.label.clone(),
                         emitter_for_type(component_path, &field.typ),
                     )
-                }).collect();
+                })
+                .collect();
             Box::new(EmitStruct { fields: emitters })
         }
         types::Kind::Enum(ref cases) => {
@@ -379,7 +381,8 @@ fn emitter_for_type(prefix: types::Path, typ: &types::Type) -> Box<JsonEmitter> 
                         field.label.clone(),
                         emitter_for_type(component_path, &field.typ),
                     )
-                }).collect();
+                })
+                .collect();
             Box::new(EmitEnum {
                 path: prefix,
                 cases: emitters,
@@ -426,7 +429,8 @@ mod tests {
                 }
             }
             "#,
-            ).unwrap();
+            )
+            .unwrap();
 
         let first = types::Path::resolve_qualified_name(&typ, "first").unwrap();
         let last = types::Path::resolve_qualified_name(&typ, "last").unwrap();
@@ -464,7 +468,8 @@ mod tests {
                 )
             )
             "#,
-            ).unwrap();
+            )
+            .unwrap();
 
         let first = types::Path::resolve_qualified_name(&typ, "0").unwrap();
         let last = types::Path::resolve_qualified_name(&typ, "1").unwrap();
@@ -497,7 +502,8 @@ mod tests {
                 None: ()
             }
             "#,
-            ).unwrap();
+            )
+            .unwrap();
 
         let encoder = JsonEncoder::new(&typ);
         let mut ds = IntermediateDataSource::new();

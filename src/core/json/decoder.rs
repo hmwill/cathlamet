@@ -340,24 +340,26 @@ impl JsonParser for PrimitiveParser {
                 }
                 _ => Err(String::from("Boolean value must be True or False")),
             },
-            types::Primitive::Char => if tokenizer.token == tokenizer::Token::String {
-                match extract_char(tokenizer.value()) {
-                    None => {
-                        tokenizer.next()?;
-                        return Err(String::from(
-                            "Expecting a string encoding a single character",
-                        ));
+            types::Primitive::Char => {
+                if tokenizer.token == tokenizer::Token::String {
+                    match extract_char(tokenizer.value()) {
+                        None => {
+                            tokenizer.next()?;
+                            return Err(String::from(
+                                "Expecting a string encoding a single character",
+                            ));
+                        }
+                        Some(ch) => {
+                            data_source.add_primitive(&self.path, value::PrimitiveValue::Char(ch));
+                            tokenizer.next()
+                        }
                     }
-                    Some(ch) => {
-                        data_source.add_primitive(&self.path, value::PrimitiveValue::Char(ch));
-                        tokenizer.next()
-                    }
+                } else {
+                    Err(String::from(
+                        "Expecting a string encoding a single character",
+                    ))
                 }
-            } else {
-                Err(String::from(
-                    "Expecting a string encoding a single character",
-                ))
-            },
+            }
             types::Primitive::F32 => parse_primitive_number(
                 tokenizer,
                 data_source,
@@ -467,7 +469,8 @@ fn parser_for_type(prefix: Path, typ: &types::Type) -> Box<JsonParser> {
                 .map(|(index, typ)| {
                     let component_path = prefix.with_component(index);
                     parser_for_type(component_path, typ)
-                }).collect();
+                })
+                .collect();
             Box::new(TupleParser { elements: emitters })
         }
         types::Kind::Struct(fields) => {
@@ -482,7 +485,8 @@ fn parser_for_type(prefix: Path, typ: &types::Type) -> Box<JsonParser> {
                 .map(|(index, field)| {
                     let component_path = prefix.with_component(index);
                     parser_for_type(component_path, &field.typ)
-                }).collect();
+                })
+                .collect();
             let struct_parser: StructParser<u64> = StructParser {
                 indices,
                 fields,
@@ -500,7 +504,8 @@ fn parser_for_type(prefix: Path, typ: &types::Type) -> Box<JsonParser> {
                         case.label.clone(),
                         (index, parser_for_type(component_path, &case.typ)),
                     )
-                }).collect();
+                })
+                .collect();
 
             Box::new(EnumParser {
                 path: prefix,
@@ -555,7 +560,8 @@ mod tests {
                 }
             }
             "#,
-            ).unwrap();
+            )
+            .unwrap();
 
         let first = types::Path::resolve_qualified_name(&typ, "first").unwrap();
         let last = types::Path::resolve_qualified_name(&typ, "last").unwrap();
@@ -595,7 +601,8 @@ mod tests {
                 )
             )
             "#,
-            ).unwrap();
+            )
+            .unwrap();
 
         let first = types::Path::resolve_qualified_name(&typ, "0").unwrap();
         let last = types::Path::resolve_qualified_name(&typ, "1").unwrap();
@@ -631,7 +638,8 @@ mod tests {
                 None: ()
             }
             "#,
-            ).unwrap();
+            )
+            .unwrap();
 
         let mut decoder = JsonDecoder::new(&typ);
         let mut data_source = IntermediateDataSource::new();

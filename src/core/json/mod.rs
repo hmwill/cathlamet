@@ -22,5 +22,4 @@
 
 pub mod decoder;
 pub mod encoder;
-pub mod parser;
 pub mod tokenizer;

@@ -314,14 +314,16 @@ fn calculate_layout(typ: &types::Type, prefix: &Path) -> Layout {
                 Some((index, (field.offset, primitive)))
             }
             _ => None,
-        }).collect();
+        })
+        .collect();
 
     fixed_size_fields = fixed_size_fields
         .iter_mut()
         .filter_map(|field| match field.kind {
             FixedSizeFieldKind::BitfieldContainer { .. } => None,
             _ => Some(field.clone()),
-        }).chain(bit_fields.iter().map(|bitfield| {
+        })
+        .chain(bit_fields.iter().map(|bitfield| {
             let (offset, primitive) = *offset_map.get(&bitfield.index).unwrap();
             FixedSizeField {
                 path: bitfield.path.clone(),
@@ -332,7 +334,8 @@ fn calculate_layout(typ: &types::Type, prefix: &Path) -> Layout {
                     num_bits: bitfield.num_bits,
                 },
             }
-        })).collect();
+        }))
+        .collect();
 
     // We order in reverse order; in this case, binary search can be used for
     // prefix searches
@@ -343,7 +346,8 @@ fn calculate_layout(typ: &types::Type, prefix: &Path) -> Layout {
             fixed_size_field_index,
             path: field.path.clone(),
             var_size_field_index: 0,
-        }).collect();
+        })
+        .collect();
     field_indices.sort_by(|l, r| l.path.cmp(&r.path).reverse());
 
     // back pointers of variable size fields to the case tag/length information
@@ -1000,7 +1004,8 @@ mod tests {
                 }
             }
             "#,
-            ).unwrap();
+            )
+            .unwrap();
 
         let first = types::Path::resolve_qualified_name(&typ, "first").unwrap();
         let last = types::Path::resolve_qualified_name(&typ, "last").unwrap();
@@ -1142,7 +1147,8 @@ mod tests {
                 Empty: ()
             }
             "#,
-            ).unwrap();
+            )
+            .unwrap();
 
         let root = types::Path::create_empty();
         let first = types::Path::resolve_qualified_name(&typ, "Person.first").unwrap();
@@ -1370,7 +1376,8 @@ mod tests {
                     }
                 }
                 "#,
-            ).unwrap();
+            )
+            .unwrap();
 
         let fill1 = types::Path::resolve_qualified_name(&typ, "fill1").unwrap();
         let fill2 = types::Path::resolve_qualified_name(&typ, "fill2").unwrap();

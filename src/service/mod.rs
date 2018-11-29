@@ -32,6 +32,9 @@ use may::net::TcpListener;
 
 use http_muncher::{Parser, ParserHandler};
 
+use super::core::data_source;
+use super::core::json;
+
 struct InsertHandler {}
 
 impl ParserHandler for InsertHandler {
@@ -52,14 +55,38 @@ impl ParserHandler for DeleteHandler {
 
 // Now let's define a new listener for parser events:
 struct RequestHandler {
-    is_complete: bool
+    is_complete: bool,
+    line_buffer: Vec<u8>,
+    decoder: Option<json::decoder::JsonDecoder>,
+    data_source: data_source::IntermediateDataSource,
 }
 
 impl RequestHandler {
     fn new() -> RequestHandler {
         RequestHandler {
-            is_complete: false
+            is_complete: false,
+            line_buffer: Vec::new(),
+            decoder: None,
+            data_source: data_source::IntermediateDataSource::new(),
         }
+    }
+
+    fn process_line(&mut self) -> bool {
+        match std::str::from_utf8(&self.line_buffer) {
+            Ok(string) => {
+                if self.decoder.as_mut().unwrap().parse(string, &mut self.data_source).is_err() {
+                    return false
+                }
+
+                //  process the resulting value
+                unimplemented!();
+
+                self.line_buffer.clear();
+            },
+            Err(_) => return false
+        }
+
+        true
     }
 }
 
@@ -85,11 +112,36 @@ impl ParserHandler for RequestHandler {
 
     fn on_body(&mut self, _parser: &mut Parser, text: &[u8]) -> bool {  
         trace!("{}", str::from_utf8(text).unwrap());
+
+        let mut bytes_left: usize = text.len();
+
+        for substring in text.split(|ch| *ch == ('\n' as u8)) {
+            self.line_buffer.extend_from_slice(substring);
+
+            bytes_left -= substring.len();
+
+            if bytes_left > 0 {
+                bytes_left -= 1;
+
+                if !self.process_line() {
+                    return false
+                }
+            }
+        }
+
         true
     }
 
     fn on_headers_complete(&mut self, _parser: &mut Parser) -> bool {  
         trace!("Headers complete");
+
+        // determine the table and the type of incoming data rows
+        
+        // initialize the decoder
+        self.decoder = Some(unimplemented!());
+
+        // initialize a command handler (insert, update, delete)
+
         true
     }
 
@@ -101,7 +153,8 @@ impl ParserHandler for RequestHandler {
     fn on_message_complete(&mut self, _parser: &mut Parser) -> bool { 
         trace!("Message complete");
         self.is_complete = true;
-        true
+
+        return self.process_line()
     }
 
     fn on_chunk_header(&mut self, _parser: &mut Parser) -> bool { 

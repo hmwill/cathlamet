@@ -21,7 +21,7 @@
 // SOFTWARE.
 
 //! # cli
-//! 
+//!
 //! `cli` is a command line client for a cathlamet cluster.
 
 #![feature(await_macro, async_await, futures_api)]
@@ -29,13 +29,13 @@
 extern crate cathlamet;
 extern crate clap;
 
-use clap::{Arg, App, SubCommand};
+use clap::{App, Arg, SubCommand};
 
 fn main() {
     let matches = App::new("CLI")
-                        .version(cathlamet::VERSION)
-                        .author(cathlamet::AUTHOR)
-                        .about(cathlamet::DESCRIPTION)
-                        .get_matches();
+        .version(cathlamet::VERSION)
+        .author(cathlamet::AUTHOR)
+        .about(cathlamet::DESCRIPTION)
+        .get_matches();
     println!("Cathlamet Client");
 }
