@@ -22,3 +22,4 @@
 
 //! `common` is a module collecting utility types and functions that are shared
 //! across components inside a Cathlamet cluster.
+

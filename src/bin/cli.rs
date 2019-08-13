@@ -24,7 +24,7 @@
 //!
 //! `cli` is a command line client for a cathlamet cluster.
 
-#![feature(await_macro, async_await, futures_api)]
+//#![feature(await_macro, async_await, futures_api)]
 
 extern crate cathlamet;
 extern crate clap;

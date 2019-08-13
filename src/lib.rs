@@ -37,6 +37,7 @@ extern crate may;
 
 extern crate bytes;
 extern crate http_muncher;
+extern crate url;
 
 #[macro_use]
 extern crate serde;
@@ -44,6 +45,7 @@ extern crate serde_json;
 
 pub mod common;
 pub mod core;
+pub mod meta;
 pub mod service;
 pub mod sql;
 

@@ -20,22 +20,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-//! # Master
-//!
-//! `master` is the main program for a master node process within a cathlamet cluster.
+//! `meta` implements distributed meta data management within a Cathlamet cluster.
 
-//#![feature(await_macro, async_await, futures_api)]
+/// Meta data subsystem that can be launched inside a Cathlamet process.
+pub struct Meta {
 
-extern crate cathlamet;
-extern crate clap;
-
-use clap::{App, Arg, SubCommand};
-
-fn main() {
-    let matches = App::new("Master")
-        .version(cathlamet::VERSION)
-        .author(cathlamet::AUTHOR)
-        .about(cathlamet::DESCRIPTION)
-        .get_matches();
-    println!("Cathlamet Master Node");
 }
+
+impl Meta {
+
+}
+

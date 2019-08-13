@@ -35,55 +35,84 @@ use http_muncher::{Parser, ParserHandler};
 use super::core::data_source;
 use super::core::json;
 
+/// Common interface for DML operations
+trait CrudHandler {
+    /// called before the first row is processed
+    fn begin(&mut self) { }
+
+    /// adds another row for processing
+    fn process(&mut self, row: &data_source::DataSource) -> bool;
+
+    /// called after the last row has been submitted
+    fn commit(&mut self) { }
+
+    /// called in case an error occurred and the operation should be rolled back
+    fn abort(&mut self) { }
+}
+
 struct InsertHandler {}
 
-impl ParserHandler for InsertHandler {
-
+impl CrudHandler for InsertHandler {
+    fn process(&mut self, row: &data_source::DataSource) -> bool {
+        unimplemented!()
+    }
 }
 
 struct UpdateHandler {}
 
-impl ParserHandler for UpdateHandler {
-
+impl CrudHandler for UpdateHandler {
+    fn process(&mut self, row: &data_source::DataSource) -> bool {
+        unimplemented!()
+    }
 }
 
 struct DeleteHandler {}
 
-impl ParserHandler for DeleteHandler {
-
+impl CrudHandler for DeleteHandler {
+    fn process(&mut self, row: &data_source::DataSource) -> bool {
+        unimplemented!()
+    }
 }
 
 // Now let's define a new listener for parser events:
 struct RequestHandler {
     is_complete: bool,
+    url: String,
     line_buffer: Vec<u8>,
     decoder: Option<json::decoder::JsonDecoder>,
     data_source: data_source::IntermediateDataSource,
+    handler: Option<Box<CrudHandler>>,
 }
 
 impl RequestHandler {
     fn new() -> RequestHandler {
         RequestHandler {
+            url: String::new(),
             is_complete: false,
             line_buffer: Vec::new(),
             decoder: None,
             data_source: data_source::IntermediateDataSource::new(),
+            handler: None,
         }
     }
 
     fn process_line(&mut self) -> bool {
-        match std::str::from_utf8(&self.line_buffer) {
-            Ok(string) => {
-                if self.decoder.as_mut().unwrap().parse(string, &mut self.data_source).is_err() {
-                    return false
-                }
+        if self.line_buffer.len() > 0 {
+            match std::str::from_utf8(&self.line_buffer) {
+                Ok(string) => {
+                    if self.decoder.as_mut().unwrap().parse(string, &mut self.data_source).is_err() {
+                        return false
+                    }
 
-                //  process the resulting value
-                unimplemented!();
+                    //  process the resulting value
+                    if !self.handler.as_mut().unwrap().process(&self.data_source) {
+                        return false
+                    }
 
-                self.line_buffer.clear();
-            },
-            Err(_) => return false
+                    self.line_buffer.clear();
+                },
+                Err(_) => return false
+            }
         }
 
         true
@@ -92,8 +121,16 @@ impl RequestHandler {
 
 impl ParserHandler for RequestHandler {
     fn on_url(&mut self, _parser: &mut Parser, url: &[u8]) -> bool { 
-        trace!("URL = {}: ", str::from_utf8(url).unwrap());
-        true
+        match str::from_utf8(url) {
+            Ok(url_str) => {
+                info!("url = {}", url_str);
+                self.url = String::from(url_str);
+                true
+            },
+            Err(_) => {
+                false
+            }
+        }
     }
 
     fn on_header_field(&mut self, _parser: &mut Parser, header: &[u8]) -> bool {
@@ -136,11 +173,12 @@ impl ParserHandler for RequestHandler {
         trace!("Headers complete");
 
         // determine the table and the type of incoming data rows
-        
+
         // initialize the decoder
         self.decoder = Some(unimplemented!());
 
         // initialize a command handler (insert, update, delete)
+        self.handler = Some(unimplemented!());
 
         true
     }
@@ -200,6 +238,18 @@ fn process_request(stream: may::net::TcpStream) {
                 }
             }
         }
+
+        match callback_handler.handler.as_mut() {
+            None => (),
+            Some(handler) => {
+                if parser.has_error() {
+                    handler.abort()
+                } else {
+                    handler.commit()
+                }
+            }
+        }
+
         buf_reader.into_inner()
     };
 

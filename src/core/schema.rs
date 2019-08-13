@@ -20,22 +20,20 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-//! # Master
-//!
-//! `master` is the main program for a master node process within a cathlamet cluster.
+/// Schema objects define namespaces within a Cathlamet cluster.
+pub struct Schema {
+    name: String,
+}
 
-//#![feature(await_macro, async_await, futures_api)]
+/// Tables represent logical collections of objects of a common type within a Cathlamet cluster.
+pub struct Table {
+    name: String,
+    typ: super::types::Type,
+    partition_key: Vec<super::types::Path>,
+    primary_key: Vec<super::types::Path>,
+}
 
-extern crate cathlamet;
-extern crate clap;
-
-use clap::{App, Arg, SubCommand};
-
-fn main() {
-    let matches = App::new("Master")
-        .version(cathlamet::VERSION)
-        .author(cathlamet::AUTHOR)
-        .about(cathlamet::DESCRIPTION)
-        .get_matches();
-    println!("Cathlamet Master Node");
+/// Partitions represent a subset of a logical table that is uniquely identified using a
+/// pafrition key prefix.
+pub struct Partition {
 }
