@@ -41,7 +41,7 @@ trait CrudHandler {
     fn begin(&mut self) { }
 
     /// adds another row for processing
-    fn process(&mut self, row: &data_source::DataSource) -> bool;
+    fn process(&mut self, row: &dyn data_source::DataSource) -> bool;
 
     /// called after the last row has been submitted
     fn commit(&mut self) { }
@@ -53,7 +53,7 @@ trait CrudHandler {
 struct InsertHandler {}
 
 impl CrudHandler for InsertHandler {
-    fn process(&mut self, row: &data_source::DataSource) -> bool {
+    fn process(&mut self, _row: &dyn data_source::DataSource) -> bool {
         unimplemented!()
     }
 }
@@ -61,7 +61,7 @@ impl CrudHandler for InsertHandler {
 struct UpdateHandler {}
 
 impl CrudHandler for UpdateHandler {
-    fn process(&mut self, row: &data_source::DataSource) -> bool {
+    fn process(&mut self, _row: &dyn data_source::DataSource) -> bool {
         unimplemented!()
     }
 }
@@ -69,7 +69,7 @@ impl CrudHandler for UpdateHandler {
 struct DeleteHandler {}
 
 impl CrudHandler for DeleteHandler {
-    fn process(&mut self, row: &data_source::DataSource) -> bool {
+    fn process(&mut self, _row: &dyn data_source::DataSource) -> bool {
         unimplemented!()
     }
 }
@@ -81,7 +81,7 @@ struct RequestHandler {
     line_buffer: Vec<u8>,
     decoder: Option<json::decoder::JsonDecoder>,
     data_source: data_source::IntermediateDataSource,
-    handler: Option<Box<CrudHandler>>,
+    handler: Option<Box<dyn CrudHandler>>,
 }
 
 impl RequestHandler {
@@ -173,14 +173,15 @@ impl ParserHandler for RequestHandler {
         trace!("Headers complete");
 
         // determine the table and the type of incoming data rows
+        unimplemented!();
 
         // initialize the decoder
-        self.decoder = Some(unimplemented!());
+        //self.decoder = Some(unimplemented!());
 
         // initialize a command handler (insert, update, delete)
-        self.handler = Some(unimplemented!());
+        //self.handler = Some(unimplemented!());
 
-        true
+        //true
     }
 
     fn on_message_begin(&mut self, _parser: &mut Parser) -> bool {  

@@ -22,7 +22,7 @@
 
 extern crate libc;
 
-#[macro_use]
+//#[macro_use]
 extern crate bitflags;
 
 #[macro_use]
@@ -39,7 +39,7 @@ extern crate bytes;
 extern crate http_muncher;
 extern crate url;
 
-#[macro_use]
+//#[macro_use]
 extern crate serde;
 extern crate serde_json;
 

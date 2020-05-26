@@ -32,7 +32,7 @@ extern crate clap;
 use clap::{App, Arg, SubCommand};
 
 fn main() {
-    let matches = App::new("CLI")
+    let _matches = App::new("CLI")
         .version(cathlamet::VERSION)
         .author(cathlamet::AUTHOR)
         .about(cathlamet::DESCRIPTION)

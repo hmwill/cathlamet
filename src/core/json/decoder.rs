@@ -82,7 +82,7 @@ impl BitSet for u64 {
 
 struct StructParser<T: BitSet> {
     indices: collections::BTreeMap<String, usize>,
-    fields: Vec<Box<JsonParser>>,
+    fields: Vec<Box<dyn JsonParser>>,
     _marker: marker::PhantomData<T>,
 }
 
@@ -152,7 +152,7 @@ impl<T: BitSet> JsonParser for StructParser<T> {
 
 struct EnumParser {
     path: Path,
-    cases: collections::BTreeMap<String, (usize, Box<JsonParser>)>,
+    cases: collections::BTreeMap<String, (usize, Box<dyn JsonParser>)>,
 }
 
 impl JsonParser for EnumParser {
@@ -225,7 +225,7 @@ impl JsonParser for EnumParser {
 }
 
 struct TupleParser {
-    elements: Vec<Box<JsonParser>>,
+    elements: Vec<Box<dyn JsonParser>>,
 }
 
 impl JsonParser for TupleParser {
@@ -454,7 +454,7 @@ impl JsonParser for NullParser {
     }
 }
 
-fn parser_for_type(prefix: Path, typ: &types::Type) -> Box<JsonParser> {
+fn parser_for_type(prefix: Path, typ: &types::Type) -> Box<dyn JsonParser> {
     match &typ.kind {
         types::Kind::Unit => Box::new(NullParser {}),
         types::Kind::Primitive(primitive) => Box::new(PrimitiveParser {
@@ -516,7 +516,7 @@ fn parser_for_type(prefix: Path, typ: &types::Type) -> Box<JsonParser> {
 }
 
 pub struct JsonDecoder {
-    parser: Box<JsonParser>,
+    parser: Box<dyn JsonParser>,
 }
 
 impl JsonDecoder {

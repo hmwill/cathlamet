@@ -30,7 +30,7 @@ use super::super::types::Path;
 
 // JSON Encoder and Decoder
 
-fn write_ch(writer: &mut io::Write, value: char) -> io::Result<()> {
+fn write_ch(writer: &mut dyn io::Write, value: char) -> io::Result<()> {
     let mut buffer: [u8; 6] = [0; 6];
 
     // Special values that need to be escaped
@@ -80,7 +80,7 @@ fn write_ch(writer: &mut io::Write, value: char) -> io::Result<()> {
     Ok(())
 }
 
-fn emit_utf8_string(writer: &mut io::Write, string: &str) -> io::Result<()> {
+fn emit_utf8_string(writer: &mut dyn io::Write, string: &str) -> io::Result<()> {
     writer.write("\"".as_bytes())?;
 
     for ch in string.chars() {
@@ -92,25 +92,25 @@ fn emit_utf8_string(writer: &mut io::Write, string: &str) -> io::Result<()> {
 }
 
 trait JsonEmitter {
-    fn emit(&self, writer: &mut io::Write, source: &DataSource) -> io::Result<()>;
+    fn emit(&self, writer: &mut dyn io::Write, source: &dyn DataSource) -> io::Result<()>;
 }
 
 /// Really, EmitUnit should not be needed at all.
 struct EmitUnit {}
 
 impl JsonEmitter for EmitUnit {
-    fn emit(&self, writer: &mut io::Write, _: &DataSource) -> io::Result<()> {
+    fn emit(&self, writer: &mut dyn io::Write, _: &dyn DataSource) -> io::Result<()> {
         writer.write("null".as_bytes())?;
         Ok(())
     }
 }
 
 struct EmitTuple {
-    components: Vec<Box<JsonEmitter>>,
+    components: Vec<Box<dyn JsonEmitter>>,
 }
 
 impl JsonEmitter for EmitTuple {
-    fn emit(&self, writer: &mut io::Write, source: &DataSource) -> io::Result<()> {
+    fn emit(&self, writer: &mut dyn io::Write, source: &dyn DataSource) -> io::Result<()> {
         writer.write("[".as_bytes())?;
 
         let mut first = true;
@@ -130,11 +130,11 @@ impl JsonEmitter for EmitTuple {
 }
 
 struct EmitStruct {
-    fields: Vec<(String, Box<JsonEmitter>)>,
+    fields: Vec<(String, Box<dyn JsonEmitter>)>,
 }
 
 impl JsonEmitter for EmitStruct {
-    fn emit(&self, writer: &mut io::Write, source: &DataSource) -> io::Result<()> {
+    fn emit(&self, writer: &mut dyn io::Write, source: &dyn DataSource) -> io::Result<()> {
         writer.write("{".as_bytes())?;
 
         let mut first = true;
@@ -157,11 +157,11 @@ impl JsonEmitter for EmitStruct {
 
 struct EmitEnum {
     path: Path,
-    cases: Vec<(String, Box<JsonEmitter>)>,
+    cases: Vec<(String, Box<dyn JsonEmitter>)>,
 }
 
 impl JsonEmitter for EmitEnum {
-    fn emit(&self, writer: &mut io::Write, source: &DataSource) -> io::Result<()> {
+    fn emit(&self, writer: &mut dyn io::Write, source: &dyn DataSource) -> io::Result<()> {
         writer.write("{\"kind\":".as_bytes())?;
 
         let case_tag = source.get_case_tag(&self.path);
@@ -178,7 +178,7 @@ struct EmitString {
 }
 
 impl JsonEmitter for EmitString {
-    fn emit(&self, writer: &mut io::Write, source: &DataSource) -> io::Result<()> {
+    fn emit(&self, writer: &mut dyn io::Write, source: &dyn DataSource) -> io::Result<()> {
         let string: &[u8] = source.get_bytes(&self.path);
         emit_utf8_string(writer, str::from_utf8(string).unwrap())?;
         Ok(())
@@ -190,7 +190,7 @@ struct EmitBoolean {
 }
 
 impl JsonEmitter for EmitBoolean {
-    fn emit(&self, writer: &mut io::Write, source: &DataSource) -> io::Result<()> {
+    fn emit(&self, writer: &mut dyn io::Write, source: &dyn DataSource) -> io::Result<()> {
         let value: bool = source.get_bool(&self.path);
 
         if value {
@@ -208,7 +208,7 @@ struct EmitChar {
 }
 
 impl JsonEmitter for EmitChar {
-    fn emit(&self, writer: &mut io::Write, source: &DataSource) -> io::Result<()> {
+    fn emit(&self, writer: &mut dyn io::Write, source: &dyn DataSource) -> io::Result<()> {
         writer.write("\"".as_bytes())?;
         write_ch(writer, source.get_char(&self.path))?;
         writer.write("\"".as_bytes())?;
@@ -224,7 +224,7 @@ struct EmitNumber<T> {
 macro_rules! encoder_emit_primitive {
     ($get_primitive:ident, $typ:ident) => {
         impl JsonEmitter for EmitNumber<$typ> {
-            fn emit(&self, writer: &mut io::Write, source: &DataSource) -> io::Result<()> {
+            fn emit(&self, writer: &mut dyn io::Write, source: &dyn DataSource) -> io::Result<()> {
                 let value = source.$get_primitive(&self.path);
                 write!(writer, "{}", value)?;
                 Ok(())
@@ -249,10 +249,10 @@ encoder_emit_primitive!(get_i64, i64);
 encoder_emit_primitive!(get_i128, i128);
 
 pub struct JsonEncoder {
-    emitter: Box<JsonEmitter>,
+    emitter: Box<dyn JsonEmitter>,
 }
 
-fn emitter_for_type(prefix: types::Path, typ: &types::Type) -> Box<JsonEmitter> {
+fn emitter_for_type(prefix: types::Path, typ: &types::Type) -> Box<dyn JsonEmitter> {
     match typ.kind {
         types::Kind::Primitive(types::Primitive::Bool) => Box::new(EmitBoolean { path: prefix }),
         types::Kind::Primitive(types::Primitive::Char) => Box::new(EmitChar { path: prefix }),
@@ -401,7 +401,7 @@ impl JsonEncoder {
         }
     }
 
-    pub fn encode(&self, writer: &mut io::Write, source: &DataSource) -> io::Result<()> {
+    pub fn encode(&self, writer: &mut dyn io::Write, source: &dyn DataSource) -> io::Result<()> {
         self.emitter.emit(writer, source)
     }
 }

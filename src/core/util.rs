@@ -32,7 +32,7 @@ use std::result;
 #[derive(Debug)]
 pub struct Error {
     message: String,
-    cause: Option<Box<error::Error>>
+    cause: Option<Box<dyn error::Error>>
 }
 
 impl Error {
@@ -43,9 +43,9 @@ impl Error {
         }
     }
 
-    pub fn from_error(err: &error::Error) -> Error {
+    pub fn from_error(err: &dyn error::Error) -> Error {
         Error {
-            message: String::from(err.description()),
+            message: String::from(err.to_string()),
             cause: None
         }
     }
@@ -53,10 +53,8 @@ impl Error {
 
 impl convert::From<io::Error> for Error {
     fn from(err: io::Error) -> Error {
-        use std::error::Error;
-
         Self {
-            message: String::from(err.description()),
+            message: String::from(err.to_string()),
             cause: Some(Box::new(err))
         }
     }
@@ -73,7 +71,7 @@ impl error::Error for Error {
         unimplemented!()
     }
 
-    fn cause(&self) -> Option<&error::Error> {
+    fn cause(&self) -> Option<&dyn error::Error> {
         unimplemented!()
     }
 }

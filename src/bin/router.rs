@@ -45,13 +45,13 @@ use std::sync::atomic;
 use nix::sys::signal;
 
 lazy_static! {
-    static ref termination_flag: atomic::AtomicBool = atomic::AtomicBool::from(false);
+    static ref TERMINATION_FLAG: atomic::AtomicBool = atomic::AtomicBool::from(false);
 }
 
 fn main() {
     pretty_env_logger::init();
 
-    let matches = App::new("Router")
+    let _matches = App::new("Router")
         .version(cathlamet::VERSION)
         .author(cathlamet::AUTHOR)
         .about(cathlamet::DESCRIPTION)
@@ -61,7 +61,7 @@ fn main() {
     may::config().set_io_workers(4);
 
     let address = "127.0.0.1:8080";
-    let mut server = cathlamet::service::HttpService::new(address, &termination_flag);
+    let mut server = cathlamet::service::HttpService::new(address, &TERMINATION_FLAG);
     info!("Starting HTTP service listening at {}", address);
     server.run();
 }
