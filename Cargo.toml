@@ -27,6 +27,7 @@ regex = "*"
 serde = "*"
 serde_json = "*"
 url = "*"
+async-std = "*"
 
 [build-dependencies]
 lalrpop = { version = "*", features = ["lexer"] }

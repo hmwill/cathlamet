@@ -1,6 +1,6 @@
 // MIT License
 //
-// Copyright (c) 2018 Hans-Martin Will
+// Copyright (c) 2018-2020 Hans-Martin Will
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -520,8 +520,8 @@ mod tests {
         assert!(is_string(r#"["asd "]"#, 1, "asd "));
         assert!(is_string(r#"["\u0821"]"#, 1, "\u{821}"));
         assert!(is_string(r#"["\u0123"]"#, 1, "\u{123}"));
-        assert!(is_string(r#"[" "]"#, 1, " "));
-        assert!(is_string(r#"[" "]"#, 1, " "));
+        assert!(is_string(r#"[""]"#, 1, ""));
+        assert!(is_string(r#"[""]"#, 1, ""));
         assert!(is_string(
             r#"["\u0061\u30af\u30EA\u30b9"]"#,
             1,
