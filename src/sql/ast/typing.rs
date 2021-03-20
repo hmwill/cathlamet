@@ -20,7 +20,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::fmt;
 use std::mem;
 
 use super::*;
@@ -268,7 +267,7 @@ impl Expression {
                         match expr_type {
                             ScalarType::Scalar {
                                 typ: types::DataType::Numeric,
-                                is_null,
+                                is_null: _,
                             } => Ok(expr_type.clone()),
                             _ => Err(Error::from(
                                 "Negate operation can only be applied to numeric type",
@@ -280,7 +279,7 @@ impl Expression {
                         match expr_type {
                             ScalarType::Scalar {
                                 typ: types::DataType::Logical,
-                                is_null,
+                                is_null: _,
                             } => Ok(expr_type.clone()),
                             _ => Err(Error::from(
                                 "Not operation can only be applied to logical type",
@@ -288,7 +287,7 @@ impl Expression {
                         }
                     }
                     &UnaryOperator::IsNull => match expr_type {
-                        ScalarType::Scalar { typ, is_null } => Ok(expr_type.clone()),
+                        ScalarType::Scalar { typ: _, is_null: _ } => Ok(expr_type.clone()),
                         _ => Err(Error::from(
                             "Null test operation can only be applied to scalar type",
                         )),
@@ -877,7 +876,7 @@ impl SetContext {
             2usize => {
                 // Verify that the first component is not referencing a CTE
                 match self.table_expression.get(&qualified_name[0]) {
-                    Some(ref row_type) => {
+                    Some(_) => {
                         return Err(Error::from(
                             "Schema name is hidden by common table expression",
                         ))
@@ -929,7 +928,7 @@ impl SetExpression {
             &SetExpression::Values(ref rows) => {
                 let scalar_context = ScalarContext::new(context);
                 assert!(rows.len() >= 1);
-                let (mut component_types, _) =
+                let (component_types, _) =
                     fold_err((Vec::new(), 0), rows[0].iter(), |(mut vec, count), expr| {
                         let name = symbols::Name::from(format!("_col{}", count));
                         let expr_type = expr.infer_type(&scalar_context)?;
@@ -947,7 +946,7 @@ impl SetExpression {
 
                 // Validate other rows and unify into the result type
                 let component_types =
-                    fold_err(component_types, (&rows[1..]).iter(), |mut types, vals| {
+                    fold_err(component_types, (&rows[1..]).iter(), |types, vals| {
                         fold_err(
                             Vec::new(),
                             types.iter().zip(vals.iter()),
@@ -982,7 +981,7 @@ impl SetExpression {
                 })
             }
             &SetExpression::Query {
-                ref mode,
+                mode: _,
                 ref columns,
                 ref from,
                 ref where_expr,
@@ -1030,7 +1029,7 @@ impl SetExpression {
                             &Some(ref having) => match having.infer_type(&scalar_context)? {
                                 ScalarType::Scalar {
                                     typ: types::DataType::Logical,
-                                    is_null,
+                                    is_null: _,
                                 } => (),
                                 _ => {
                                     return Err(Error::from(
@@ -1047,7 +1046,7 @@ impl SetExpression {
                 columns.infer_type(&scalar_context, &attributes)
             }
             &SetExpression::Op {
-                ref op,
+                op: _,
                 ref left,
                 ref right,
             } => {
@@ -1167,7 +1166,7 @@ impl ResultColumns {
                         }
                     },
                     &ResultColumn::Expr {
-                        expr: ref expr,
+                        ref expr,
                         rename: ref alias,
                     } => match expr.infer_type(&context)? {
                         ScalarType::Tuple(_) => {
@@ -1227,7 +1226,7 @@ impl TableExpression {
             }
             &TableExpression::Select {
                 ref select,
-                ref alias,
+                alias: _,
             } => {
                 let row_type = select.infer_type(&context.set_context)?;
                 Ok((context, row_type.attributes))
@@ -1235,8 +1234,8 @@ impl TableExpression {
             &TableExpression::Join {
                 ref left,
                 ref right,
-                ref op,
-                ref constraint,
+                op: _,
+                constraint: _,
             } => {
                 let (left_context, mut attributes) = left.infer_type(context)?;
                 let (result_context, mut right_attributes) = right.infer_type(left_context)?;
@@ -1307,7 +1306,7 @@ impl SqlStatement {
 }
 
 impl AttachStatement {
-    fn validate_type(&self, context: &SetContext) -> Result<(), Error> {
+    fn validate_type(&self, _: &SetContext) -> Result<(), Error> {
         Ok(())
     }
 }
