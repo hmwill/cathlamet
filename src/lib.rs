@@ -20,33 +20,11 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-extern crate libc;
-
-//#[macro_use]
-extern crate bitflags;
-
 #[macro_use]
 extern crate error_chain;
 
-#[macro_use]
-extern crate log;
-extern crate pretty_env_logger;
-
-#[macro_use]
-extern crate may;
-
-extern crate bytes;
-extern crate http_muncher;
-extern crate url;
-
-//#[macro_use]
-extern crate serde;
-extern crate serde_json;
-
 pub mod common;
 pub mod core;
-pub mod meta;
-pub mod service;
 pub mod sql;
 
 pub static VERSION: &'static str = env!("CARGO_PKG_VERSION");

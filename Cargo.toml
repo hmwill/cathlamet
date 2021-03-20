@@ -10,24 +10,10 @@ license = "MIT"
 build = "build.rs" # LALRPOP preprocessing
 
 [dependencies]
-bitflags = "*"
-bytes = "*"
 clap = "*"
-cranelift = "*"
 error-chain = "*"
-http-muncher = "*"
-lazy_static = "*"
-libc = "*"
-may = "*"
-nix = "*"
-lalrpop-util="*"
-log = "*"
-pretty_env_logger = "*"
-regex = "*"
-serde = "*"
-serde_json = "*"
-url = "*"
 async-std = "*"
+lalrpop-util = "*"
 
 [build-dependencies]
 lalrpop = { version = "*", features = ["lexer"] }

@@ -22,11 +22,9 @@
 
 pub mod data_source;
 pub mod json;
-pub mod fabric;
 pub mod marshaller;
 pub mod nsm;
 pub mod schema;
-pub mod space;
 pub mod types;
 pub mod util;
 pub mod value;

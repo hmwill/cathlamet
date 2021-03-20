@@ -29,39 +29,13 @@
 extern crate cathlamet;
 extern crate clap;
 
-#[macro_use]
-extern crate lazy_static;
-
-#[macro_use]
-extern crate log;
-extern crate may;
-extern crate nix;
-extern crate pretty_env_logger;
-
 use clap::{App, Arg, SubCommand};
 
-use std::sync::atomic;
-
-use nix::sys::signal;
-
-lazy_static! {
-    static ref TERMINATION_FLAG: atomic::AtomicBool = atomic::AtomicBool::from(false);
-}
-
 fn main() {
-    pretty_env_logger::init();
-
-    let _matches = App::new("Router")
+    let _matches = App::new("Storage")
         .version(cathlamet::VERSION)
         .author(cathlamet::AUTHOR)
         .about(cathlamet::DESCRIPTION)
         .get_matches();
-    info!("Cathlamet Request Router Node");
-
-    may::config().set_io_workers(4);
-
-    let address = "127.0.0.1:8080";
-    let mut server = cathlamet::service::HttpService::new(address, &TERMINATION_FLAG);
-    info!("Starting HTTP service listening at {}", address);
-    server.run();
+    println!("Cathlamet Storage Node");
 }
