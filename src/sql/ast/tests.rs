@@ -19,23 +19,3 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-
-//! # cli
-//!
-//! `cli` is a command line client for a cathlamet cluster.
-
-//#![feature(await_macro, async_await, futures_api)]
-
-extern crate cathlamet;
-extern crate clap;
-
-use clap::{App, Arg, SubCommand};
-
-fn main() {
-    let _matches = App::new("CLI")
-        .version(cathlamet::VERSION)
-        .author(cathlamet::AUTHOR)
-        .about(cathlamet::DESCRIPTION)
-        .get_matches();
-    println!("Cathlamet Client");
-}

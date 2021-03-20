@@ -1,6 +1,6 @@
 // MIT License
 //
-// Copyright (c) 2018-2020 Hans-Martin Will
+// Copyright (c) 2018-2021 Hans-Martin Will
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -21,3 +21,66 @@
 // SOFTWARE.
 
 //! `sql` provides a SQL front-end implementation.
+
+mod ast;
+mod schema;
+mod types;
+mod parser;
+mod symbols;
+
+/// A simple error type for this library
+pub struct Error {
+    message: String,
+    nested: Option<Box<std::error::Error>>,
+}
+
+impl Error {
+    pub fn new<'a, E: 'static + std::error::Error>(message: &'a str, nested: Box<E>) -> Error {
+        Error {
+            message: String::from(message),
+            nested: Some(nested),
+        }
+    }
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::fmt::Debug for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        write!(f, "[Error] {}", self.message)
+    }
+}
+
+impl std::error::Error for Error {
+    fn description(&self) -> &str {
+        &self.message
+    }
+
+    fn cause(&self) -> Option<&std::error::Error> {
+        use std::ops::Deref;
+
+        self.nested.as_ref().map(|e| e.deref())
+    }
+}
+
+impl From<String> for Error {
+    fn from(val: String) -> Error {
+        Error {
+            message: val,
+            nested: None,
+        }
+    }
+}
+
+impl<'a> From<&'a str> for Error {
+    fn from(val: &'a str) -> Error {
+        Error {
+            message: String::from(val),
+            nested: None,
+        }
+    }
+}

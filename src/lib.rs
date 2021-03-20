@@ -1,6 +1,6 @@
 // MIT License
 //
-// Copyright (c) 2018-2020 Hans-Martin Will
+// Copyright (c) 2018-2021 Hans-Martin Will
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,6 +22,11 @@
 
 #[macro_use]
 extern crate error_chain;
+
+extern crate serde;
+
+#[macro_use]
+extern crate serde_derive;
 
 pub mod common;
 pub mod core;

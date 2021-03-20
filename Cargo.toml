@@ -14,6 +14,8 @@ clap = "*"
 error-chain = "*"
 async-std = "*"
 lalrpop-util = "*"
+serde = "*"
+serde_derive = "*"
 
 [build-dependencies]
 lalrpop = { version = "*", features = ["lexer"] }
