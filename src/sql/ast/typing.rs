@@ -245,10 +245,10 @@ impl Expression {
         match self {
             &Expression::Literal(ref literal) => Ok(literal.infer_type()),
 
-            /// a qualified name referring to an attribute of a bound relation
+            // a qualified name referring to an attribute of a bound relation
             &Expression::QualifiedIdentifier(ref qualident) => context.infer_type(qualident),
 
-            /// tuple construction
+            // tuple construction
             &Expression::MakeTuple(ref exprs) => {
                 let result: Result<Vec<ScalarType>, Error> = exprs
                     .into_iter()
@@ -258,7 +258,7 @@ impl Expression {
                 Ok(ScalarType::Tuple(result?))
             }
 
-            /// unary operation
+            // unary operation
             &Expression::Unary { ref op, ref expr } => {
                 let expr_type = expr.infer_type(context)?;
 
@@ -296,7 +296,7 @@ impl Expression {
                 }
             }
 
-            /// Binary operation
+            // Binary operation
             &Expression::Binary {
                 ref op,
                 ref left,
@@ -377,7 +377,7 @@ impl Expression {
                 }
             }
 
-            /// Comparison operation
+            // Comparison operation
             &Expression::Comparison {
                 ref op,
                 ref left,
@@ -446,7 +446,7 @@ impl Expression {
                 }
             }
 
-            /// Range check
+            // Range check
             &Expression::Between {
                 ref expr,
                 ref lower,
@@ -486,7 +486,7 @@ impl Expression {
                 }
             }
 
-            /// Case statement; guards are predicates
+            // Case statement; guards are predicates
             &Expression::Case {
                 expr: None,
                 ref when_part,
@@ -547,7 +547,7 @@ impl Expression {
                 }
             }
 
-            /// Case statement;switch on expr value
+            // Case statement;switch on expr value
             &Expression::Case {
                 expr: Some(ref expr),
                 ref when_part,
@@ -611,7 +611,7 @@ impl Expression {
                 }
             }
 
-            /// Set membership test; set should evaluate to a row set with a single column
+            // Set membership test; set should evaluate to a row set with a single column
             &Expression::In { ref expr, ref set } => {
                 let expr_type = expr.infer_type(context)?;
                 let set_type = set.infer_type(&context)?;
@@ -635,9 +635,9 @@ impl Expression {
                 }
             }
 
-            /// nested select statement
-            ///
-            /// should evaluate to a row set with a single column (and single row upon execution)
+            // nested select statement
+            //
+            // should evaluate to a row set with a single column (and single row upon execution)
             &Expression::Select(ref select) => {
                 let select_type = select.infer_type(&context.set_context)?;
                 if select_type.attributes.len() == 1 {
@@ -680,49 +680,49 @@ impl Literal {
                 is_null: false,
             },
 
-            /// Numeric literal
+            // Numeric literal
             &Literal::NumericLiteral(_) => ScalarType::Scalar {
                 typ: types::DataType::Numeric,
                 is_null: false,
             },
 
-            /// the NULL value
+            // the NULL value
             &Literal::Null => ScalarType::Scalar {
                 typ: types::DataType::Generic,
                 is_null: true,
             },
 
-            /// the current time
+            // the current time
             &Literal::CurrentTime => ScalarType::Scalar {
                 typ: types::DataType::Time,
                 is_null: false,
             },
 
-            /// the current date
+            // the current date
             &Literal::CurrentDate => ScalarType::Scalar {
                 typ: types::DataType::Date,
                 is_null: false,
             },
 
-            /// the current timestamp
+            // the current timestamp
             &Literal::CurrentTimestamp => ScalarType::Scalar {
                 typ: types::DataType::Timestamp,
                 is_null: false,
             },
 
-            /// DATE literal
+            // DATE literal
             &Literal::DateLiteral(_) => ScalarType::Scalar {
                 typ: types::DataType::Date,
                 is_null: false,
             },
 
-            /// TIME literal
+            // TIME literal
             &Literal::TimeLiteral(_) => ScalarType::Scalar {
                 typ: types::DataType::Time,
                 is_null: false,
             },
 
-            /// TIMESTAMP literal
+            // TIMESTAMP literal
             &Literal::TimestampLiteral(_) => ScalarType::Scalar {
                 typ: types::DataType::Timestamp,
                 is_null: false,
