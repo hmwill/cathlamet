@@ -10,12 +10,15 @@ license = "MIT"
 build = "build.rs" # LALRPOP preprocessing
 
 [dependencies]
+async-std = { version = "*", features = ["unstable"] }
 clap = "*"
 error-chain = "*"
-async-std = "*"
 lalrpop-util = "*"
+libc = "*"
+memmap = "*"
 serde = "*"
 serde_derive = "*"
+uuid = "*"
 
 [build-dependencies]
 lalrpop = { version = "*", features = ["lexer"] }

@@ -31,6 +31,7 @@ extern crate serde_derive;
 pub mod common;
 pub mod core;
 pub mod sql;
+pub mod storage;
 
 pub static VERSION: &'static str = env!("CARGO_PKG_VERSION");
 pub static AUTHOR: &'static str = env!("CARGO_PKG_AUTHORS");
