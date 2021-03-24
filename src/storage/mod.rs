@@ -407,19 +407,17 @@ impl BufferPool {
         buffers[num_buffers - 1].link.next = NIL_BUFFER_INDEX;
 
         // create list header for this chain of buffers
-        let unused_buffers = BufferListHead { 
+        let available_buffers = BufferListHead { 
             head: 0,
             tail: (num_buffers - 1) as BufferIndex
         };
 
-        let mut mapped_locations = std::collections::BTreeMap::new();
-
         let mapping_inner = BufferPoolMapping {
             buffers,
-            mapped_locations,
+            mapped_locations: std::collections::BTreeMap::new(),
             dirty_buffers: BufferListHead::default(),
             in_use_buffers: BufferListHead::default(),
-            available_buffers: BufferListHead::default(),
+            available_buffers,
             read_write_locks: Vec::new(),
         };
 
@@ -438,92 +436,42 @@ impl BufferPool {
     }
 
     // Provide read-only access to a buffer 
-    fn access_read_only<'a>(&'a self, _location: Location) -> ReadOnlyBufferHandle<'a> {
+    async fn access_read_only<'a>(&'a self, location: Location) -> ReadOnlyBufferHandle<'a> {
+        let (index, lock_ptr, init_lock) = self.buffer_access(location).await;
+
+        let guard = match init_lock {
+            None => unsafe {
+                (*lock_ptr).read().await
+            },
+            Some (guard) => unsafe {
+                let page_data = self.writable_slice(index);
+                //page_data.fill(0);
+                unimplemented!("Fetch the buffer content from the backing store");
+                async_std::sync::RwLockWriteGuard::downgrade(guard)
+            }
+        };
 
         ReadOnlyBufferHandle {
             pool: self,
-            buffer_index: 0
+            guard,
+            buffer_index: index
         }
     }
 
     // Provide read-write access to a buffer 
-    fn access_read_write<'a>(&'a self, _location: Location) -> ReadWriteBufferHandle<'a> {
-        unimplemented!()
-        // ReadWriteBufferHandle {
-        //     pool: self,
-        //     buffer_index: 0
-        //}
-    }
+    async fn access_read_write<'a>(&'a self, location: Location) -> ReadWriteBufferHandle<'a> {
+        let (index, lock_ptr, init_lock) = self.buffer_access(location).await;
 
-    // Provide read-write access to a buffer without necessarily restoring previous content
-    async fn access_initialize<'a>(&'a self, location: Location) -> ReadWriteBufferHandle<'a> {
-        let (index, lock_ptr) = {
-            let mut guard = self.mapping.lock().await;
-
-            loop {
-                let internal = &mut *guard;
-
-                // determine if the location has already been mapped
-                match internal.mapped_locations.get(&location) {
-                    None => {
-                        if internal.available_buffers.tail != NIL_BUFFER_INDEX {
-                            let index = internal.available_buffers.tail;
-                            let available_buffers = &mut internal.available_buffers;
-                            let buffers = &mut internal.buffers;
-                            available_buffers.list_remove(buffers, index);
-
-                            let in_use_buffers = &mut internal.available_buffers;
-                            in_use_buffers.list_push_front(buffers, index);
-
-                            internal.mapped_locations.insert(location, index as usize);
-
-                            assert!(buffers[index as usize].access.is_none());
-
-                            let read_write_locks = &mut internal.read_write_locks;
-
-                            let lock = BufferPoolMapping::alloc_lock(read_write_locks);
-                            let lock_ptr = (&*lock) as *const async_std::sync::RwLock<()>;
-
-                            buffers[index as usize].access = Some(BufferAccess {
-                                lock,
-                                num_handles: 1
-                            });
-
-                            break (index as usize, lock_ptr)
-                        } else {
-                            guard = self.buffer_available.wait(guard).await;
-                            continue;
-                        }
-                    },
-                    Some(&index) => {
-                        match &mut internal.buffers[index as usize].access {
-                            &mut None => {
-                                let read_write_locks = &mut internal.read_write_locks;
-                                let lock = BufferPoolMapping::alloc_lock(read_write_locks);
-                                let lock_ptr = (&*lock) as *const async_std::sync::RwLock<()>;
-
-                                internal.buffers[index as usize].access = 
-                                    Some(BufferAccess {
-                                        lock,
-                                        num_handles: 1
-                                    });
-                                
-                                break (index, lock_ptr);
-                            },
-                            &mut Some(ref mut access) => {
-                                let lock_ptr = (&*access.lock) as *const async_std::sync::RwLock<()>;
-                                let num_handles = access.num_handles;
-                                access.num_handles = num_handles + 1;
-                                break (index, lock_ptr);
-                            }
-                        };
-                    }
-                }
+        let guard = match init_lock {
+            None => unsafe {
+                (*lock_ptr).write().await
+            },
+            Some (guard) => unsafe {
+                let page_data = self.writable_slice(index);
+                //page_data.fill(0);
+                unimplemented!("Fetch the buffer content from the backing store");
+                guard
             }
-        };
-
-        let guard = unsafe {
-            (*lock_ptr).write().await
         };
 
         ReadWriteBufferHandle {
@@ -533,44 +481,217 @@ impl BufferPool {
         }
     }
 
-    fn downgrade<'b, 'a: 'b>(&'a self, handle: ReadOnlyBufferHandle<'b>) ->
-        ReadOnlyBufferHandle<'a> 
-    {
-        // mark as dirty
+    async fn buffer_access<'a>(&'a self, location: Location) -> (usize, *const async_std::sync::RwLock<()>,
+        Option<async_std::sync::RwLockWriteGuard<'a, ()>>) {
+        let mut guard = self.mapping.lock().await;
 
-        ReadOnlyBufferHandle {
+        loop {
+            let internal = &mut *guard;
+
+            // determine if the location has already been mapped
+            match internal.mapped_locations.get(&location) {
+                None => {
+                    if internal.available_buffers.tail != NIL_BUFFER_INDEX {
+                        let index = internal.available_buffers.tail;
+                        let available_buffers = &mut internal.available_buffers;
+                        let buffers = &mut internal.buffers;
+                        available_buffers.list_remove(buffers, index);
+
+                        let in_use_buffers = &mut internal.available_buffers;
+                        in_use_buffers.list_push_front(buffers, index);
+
+                        internal.mapped_locations.insert(location, index as usize);
+
+                        assert!(buffers[index as usize].access.is_none());
+
+                        let read_write_locks = &mut internal.read_write_locks;
+
+                        let lock = BufferPoolMapping::alloc_lock(read_write_locks);
+                        let lock_ptr = (&*lock) as *const async_std::sync::RwLock<()>;
+
+                        buffers[index as usize].access = Some(BufferAccess {
+                            lock,
+                            num_handles: 1
+                        });
+
+                        let init_lock = unsafe {
+                            (*lock_ptr).try_write().unwrap()
+                        };
+
+                    break (index as usize, lock_ptr, Some(init_lock))
+
+                    } else {
+                        guard = self.buffer_available.wait(guard).await;
+                        continue;
+                    }
+                },
+                Some(&index) => {
+                    match &mut internal.buffers[index as usize].access {
+                        &mut None => {
+                            let read_write_locks = &mut internal.read_write_locks;
+                            let lock = BufferPoolMapping::alloc_lock(read_write_locks);
+                            let lock_ptr = (&*lock) as *const async_std::sync::RwLock<()>;
+
+                            internal.buffers[index as usize].access = 
+                                Some(BufferAccess {
+                                    lock,
+                                    num_handles: 1
+                                });
+                            
+                            let init_lock = unsafe {
+                                (*lock_ptr).try_write().unwrap()
+                            };
+
+                            break (index, lock_ptr, Some(init_lock));
+                        },
+                        &mut Some(ref mut access) => {
+                            let lock_ptr = (&*access.lock) as *const async_std::sync::RwLock<()>;
+                            let num_handles = access.num_handles;
+                            access.num_handles = num_handles + 1;
+                            break (index, lock_ptr, None);
+                        }
+                    };
+                }
+            }
+        }
+    }
+
+    // Provide read-write access to a buffer without necessarily restoring previous content
+    async fn access_initialize<'a>(&'a self, location: Location) -> ReadWriteBufferHandle<'a> {
+        let (index, lock_ptr, init_lock) = self.buffer_access(location).await;
+
+        let guard = match init_lock {
+            None => unsafe {
+                (*lock_ptr).write().await
+            },
+            Some (guard) => unsafe {
+                let page_data = self.writable_slice(index);
+                page_data.fill(0);
+                guard
+            }
+        };
+
+        ReadWriteBufferHandle {
             pool: self,
-            buffer_index: 0
+            guard,
+            buffer_index: index
         }
     }
 
     // Return a read-only handle
-    async fn return_read_only<'b, 'a: 'b>(&'a self, handle: ReadOnlyBufferHandle<'b>) {
+    async fn return_read_only<'a>(&'a self, buffer_index: usize) {
+        // because the handle still holds the lock, we are still preventing exclusive
+        // write access to this buffer
 
-        // if this is the last read access, remove from in_use list
+        let internal = &mut *self.mapping.lock().await;
 
-        // if the buffer is dirty:
-        // move to dirty list
+        let (BufferAccess { lock, num_handles: _ }, dirty) = {
+            let buffer = &mut internal.buffers[buffer_index];
 
-        // if it has not been submitted:
-        // signal buffer_dirty
+            // if nobody picked up an access handle while we have been holding the lock, move
+            // the buffer to the dirty queue and trigger the buffer_dirty condition variable if
+            // the buffer is not marked for submission already.
 
-        unimplemented!();
+            match &mut buffer.access {
+                None => panic!("Should have access with num_handles >= 1"),
+                Some(ref mut access) => {
+                    assert!(access.num_handles > 0);
 
+                    if access.num_handles > 1 {
+                        access.num_handles = access.num_handles - 1;
+                        return;
+                    }
+                }
+            };
+
+            // at this point we know that we are the only acess handle and buffer needs to be moved 
+            // to the dirty queue or can become available because it is clean
+
+            if !buffer.dirty {
+                self.buffer_available.notify_one();
+            } else if !buffer.submitted {
+                self.buffer_dirty.notify_one();
+            }
+
+            (buffer.access.take().unwrap(), buffer.dirty)
+        };
+
+        {
+            let read_write_locks = &mut internal.read_write_locks;
+            BufferPoolMapping::dealloc_lock(read_write_locks, lock);
+        }
+
+        {
+            let in_use_buffers = &mut internal.in_use_buffers;
+            let buffers = &mut internal.buffers;
+            in_use_buffers.list_remove(buffers, buffer_index as BufferIndex);
+        }
+
+        if dirty {
+            let dirty_buffers = &mut internal.dirty_buffers;
+            let buffers = &mut internal.buffers;
+            dirty_buffers.list_push_front(buffers, buffer_index as BufferIndex);
+        } else {
+            let available_buffers = &mut internal.available_buffers;
+            let buffers = &mut internal.buffers;
+            available_buffers.list_push_front(buffers, buffer_index as BufferIndex);
+        }
     }
 
     // Return a read-write handle
-    fn return_read_write<'b, 'a: 'b>(&'a self, handle: ReadWriteBufferHandle<'b>) {
-        unimplemented!()
+    async fn return_read_write<'a>(&'a self, buffer_index: usize) {
+        // because the handle still holds the lock, we still have exclusive access to
+        // this buffer
+        let internal = &mut *self.mapping.lock().await;
 
-        // mark as dirty
+        let BufferAccess { lock, num_handles: _ } = {
+            let buffer = &mut internal.buffers[buffer_index];
+            buffer.dirty = true;
 
-        // move from in-use to dirty buffer list
+            // if nobody picked up an access handle while we have been holding the lock, move
+            // the buffer to the dirty queue and trigger the buffer_dirty condition variable if
+            // the buffer is not marked for submission already.
 
-        // signal dirty_buffer
+            match &mut buffer.access {
+                None => panic!("Should have access with num_handles >= 1"),
+                Some(ref mut access) => {
+                    assert!(access.num_handles > 0);
 
-        // Question: how are we working with other tasks that have been waiting to access this 
-        // buffer?
+                    if access.num_handles > 1 {
+                        access.num_handles = access.num_handles - 1;
+                        return;
+                    }
+                }
+            };
+
+            // at this point we know that we are the only acess handle and buffer needs to be moved 
+            // to the dirty queue
+
+            if !buffer.submitted {
+                // while we signal here, any access to the condition variable is still protected
+                // by the lock we are holding
+                self.buffer_dirty.notify_one();
+            }
+
+            buffer.access.take().unwrap()
+        };
+
+        {
+            let read_write_locks = &mut internal.read_write_locks;
+            BufferPoolMapping::dealloc_lock(read_write_locks, lock);
+        }
+
+        {
+            let in_use_buffers = &mut internal.in_use_buffers;
+            let buffers = &mut internal.buffers;
+            in_use_buffers.list_remove(buffers, buffer_index as BufferIndex);
+        }
+
+        {
+            let dirty_buffers = &mut internal.dirty_buffers;
+            let buffers = &mut internal.buffers;
+            dirty_buffers.list_push_front(buffers, buffer_index as BufferIndex);
+        }
     }
 
     // Unmap a specific location, that is contents are no longer needed, and they should also
@@ -584,6 +705,18 @@ impl BufferPool {
     // need a way to ensure all buffers a written back to their volumes before destructing the
     // object. For example, we could block the destructor until the write-back queue is empty.
 
+
+    unsafe fn writable_slice<'a>(&'a self, buffer_index: usize) -> &'a mut [u8] {
+        let base: *const u8 = self.memory.as_ptr();
+        let page_base = base.add(self.buffer_size * buffer_index);
+        unsafe { std::slice::from_raw_parts_mut(page_base as *mut u8, self.buffer_size) }
+    } 
+
+    unsafe fn readable_slice<'a>(&'a self, buffer_index: usize) -> &'a [u8] {
+        let base: *const u8 = self.memory.as_ptr();
+        let page_base = base.add(self.buffer_size * buffer_index);
+        unsafe { std::slice::from_raw_parts(page_base, self.buffer_size) }
+    } 
 }
 
 impl Drop for BufferPool {
@@ -654,12 +787,25 @@ struct ReadOnlyBufferHandle<'a> {
     // pointer to the pool to which this handle refers to
     pool: &'a BufferPool,
 
+    // access guard
+    guard: async_std::sync::RwLockReadGuard<'a, ()>,
+
     // index of the buffer within the pool
     buffer_index: usize
 }
 
 impl <'a> ReadOnlyBufferHandle<'a> {
     // get a read-only slice to the buffer content
+    fn buffer_ref(&self) -> &'a [u8] {
+        unsafe { self.pool.readable_slice(self.buffer_index) }
+    }
+}
+
+impl <'a> Drop for ReadOnlyBufferHandle<'a> {
+    // get a read-only slice to the buffer content
+    fn drop(&mut self) {
+        self.pool.return_read_only(self.buffer_index);
+    }
 }
 
 // Handle for accessing buffers in the buffer pool
@@ -676,7 +822,20 @@ struct ReadWriteBufferHandle<'a> {
 
 impl <'a> ReadWriteBufferHandle<'a> {
     // get a read-only slice to the buffer content
+    fn buffer_ref(&self) -> &'a [u8] {
+        unsafe { self.pool.readable_slice(self.buffer_index) }
+    }
 
     // get a read-write slice to the buffer content
+    fn buffer_mut(&mut self) -> &'a mut [u8] {
+        unsafe { self.pool.writable_slice(self.buffer_index) }
+    }
+}
+
+impl <'a> Drop for ReadWriteBufferHandle<'a> {
+    // get a read-only slice to the buffer content
+    fn drop(&mut self) {
+        self.pool.return_read_write(self.buffer_index);
+    }
 }
 
