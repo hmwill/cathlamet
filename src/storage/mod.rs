@@ -230,6 +230,16 @@ impl VolumeManager {
     async fn unmount_all(&mut self) -> std::io::Result<()> {
         unimplemented!()
     }
+
+    // Write buffer contents to external storage
+    async fn fetch(&self, location: Location, buffer: &mut[u8]) -> std::io::Result<()> {
+        unimplemented!()
+    }
+
+    // Read buffer contents from external storage
+    async fn store(&self, location: Location, buffer: &[u8]) -> std::io::Result<()> {
+        unimplemented!()
+    }
 }
 
 impl Drop for VolumeManager {
@@ -368,6 +378,9 @@ impl BufferPoolMapping {
 
 /// Page cache to map block storage data into main memory.
 struct BufferPool {
+    // Backingstore used to fetch and store buffers
+    backing_store: std::sync::Weak<VolumeManager>,
+
     // we are using an anonymous mmap to obtain VM page aligned memory
     memory: memmap::MmapMut,
 
@@ -422,12 +435,18 @@ impl BufferPool {
         };
 
         Ok(BufferPool {
+            backing_store: std::sync::Weak::new(),
             memory,
             buffer_size,
             mapping: async_std::sync::Mutex::new(mapping_inner),
             buffer_available: async_std::sync::Condvar::new(),
             buffer_dirty: async_std::sync::Condvar::new(),
         })
+    }
+
+    // attach the backing store
+    fn set_backing_store(&mut self, backing_store: &std::sync::Arc<VolumeManager>) {
+        self.backing_store = std::sync::Arc::downgrade(backing_store);
     }
 
     // return the total amount of allocated memory
@@ -445,15 +464,15 @@ impl BufferPool {
             },
             Some (guard) => unsafe {
                 let page_data = self.writable_slice(index);
-                //page_data.fill(0);
-                unimplemented!("Fetch the buffer content from the backing store");
+                let backing_store = self.backing_store.upgrade().unwrap();
+                backing_store.fetch(location, page_data).await.unwrap();
                 async_std::sync::RwLockWriteGuard::downgrade(guard)
             }
         };
 
         ReadOnlyBufferHandle {
             pool: self,
-            guard,
+            guard: Some(guard),
             buffer_index: index
         }
     }
@@ -468,15 +487,37 @@ impl BufferPool {
             },
             Some (guard) => unsafe {
                 let page_data = self.writable_slice(index);
-                //page_data.fill(0);
-                unimplemented!("Fetch the buffer content from the backing store");
+                let backing_store = self.backing_store.upgrade().unwrap();
+                backing_store.fetch(location, page_data).await.unwrap();
                 guard
             }
         };
 
         ReadWriteBufferHandle {
             pool: self,
-            guard,
+            guard: Some(guard),
+            buffer_index: index
+        }
+    }
+
+    // Provide read-write access to a buffer without necessarily restoring previous content
+    async fn access_initialize<'a>(&'a self, location: Location) -> ReadWriteBufferHandle<'a> {
+        let (index, lock_ptr, init_lock) = self.buffer_access(location).await;
+
+        let guard = match init_lock {
+            None => unsafe {
+                (*lock_ptr).write().await
+            },
+            Some (guard) => unsafe {
+                let page_data = self.writable_slice(index);
+                page_data.fill(0);
+                guard
+            }
+        };
+
+        ReadWriteBufferHandle {
+            pool: self,
+            guard: Some(guard),
             buffer_index: index
         }
     }
@@ -556,30 +597,8 @@ impl BufferPool {
         }
     }
 
-    // Provide read-write access to a buffer without necessarily restoring previous content
-    async fn access_initialize<'a>(&'a self, location: Location) -> ReadWriteBufferHandle<'a> {
-        let (index, lock_ptr, init_lock) = self.buffer_access(location).await;
-
-        let guard = match init_lock {
-            None => unsafe {
-                (*lock_ptr).write().await
-            },
-            Some (guard) => unsafe {
-                let page_data = self.writable_slice(index);
-                page_data.fill(0);
-                guard
-            }
-        };
-
-        ReadWriteBufferHandle {
-            pool: self,
-            guard,
-            buffer_index: index
-        }
-    }
-
     // Return a read-only handle
-    async fn return_read_only<'a>(&'a self, buffer_index: usize) {
+    async fn release_read_only<'a>(&'a self, buffer_index: usize) {
         // because the handle still holds the lock, we are still preventing exclusive
         // write access to this buffer
 
@@ -639,7 +658,7 @@ impl BufferPool {
     }
 
     // Return a read-write handle
-    async fn return_read_write<'a>(&'a self, buffer_index: usize) {
+    async fn release_read_write<'a>(&'a self, buffer_index: usize) {
         // because the handle still holds the lock, we still have exclusive access to
         // this buffer
         let internal = &mut *self.mapping.lock().await;
@@ -721,7 +740,7 @@ impl BufferPool {
 
 impl Drop for BufferPool {
     fn drop(&mut self) {
-        // this needs to ensure that all pending writes have been completed and all
+        // TODO: this needs to ensure that all pending writes have been completed and all
         // pending handles have been dosposed before allowing to de-allocate the underlying memory 
         // areas.
     }
@@ -788,7 +807,7 @@ struct ReadOnlyBufferHandle<'a> {
     pool: &'a BufferPool,
 
     // access guard
-    guard: async_std::sync::RwLockReadGuard<'a, ()>,
+    guard: Option<async_std::sync::RwLockReadGuard<'a, ()>>,
 
     // index of the buffer within the pool
     buffer_index: usize
@@ -799,12 +818,23 @@ impl <'a> ReadOnlyBufferHandle<'a> {
     fn buffer_ref(&self) -> &'a [u8] {
         unsafe { self.pool.readable_slice(self.buffer_index) }
     }
+
+    async fn release(&mut self) {
+        if self.guard.is_none() {
+            panic!("Buffer handle has been released already")
+        }
+
+        self.pool.release_read_only(self.buffer_index).await;
+        self.guard.take();
+    }
 }
 
 impl <'a> Drop for ReadOnlyBufferHandle<'a> {
     // get a read-only slice to the buffer content
     fn drop(&mut self) {
-        self.pool.return_read_only(self.buffer_index);
+        if self.guard.is_some() {
+            panic!("Did not release handle")
+        }
     }
 }
 
@@ -814,7 +844,7 @@ struct ReadWriteBufferHandle<'a> {
     pool: &'a BufferPool,
 
     // access guard
-    guard: async_std::sync::RwLockWriteGuard<'a, ()>,
+    guard: Option<async_std::sync::RwLockWriteGuard<'a, ()>>,
 
     // index of the buffer within the pool
     buffer_index: usize
@@ -830,12 +860,23 @@ impl <'a> ReadWriteBufferHandle<'a> {
     fn buffer_mut(&mut self) -> &'a mut [u8] {
         unsafe { self.pool.writable_slice(self.buffer_index) }
     }
+
+    async fn release(&mut self) {
+        if self.guard.is_none() {
+            panic!("Buffer handle has been released already")
+        }
+
+        self.pool.release_read_write(self.buffer_index).await;
+        self.guard.take();
+    }
 }
 
 impl <'a> Drop for ReadWriteBufferHandle<'a> {
     // get a read-only slice to the buffer content
     fn drop(&mut self) {
-        self.pool.return_read_write(self.buffer_index);
+        if self.guard.is_some() {
+            panic!("Did not release handle")
+        }
     }
 }
 
