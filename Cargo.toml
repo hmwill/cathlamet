@@ -18,7 +18,7 @@ libc = "*"
 memmap = "*"
 serde = "*"
 serde_derive = "*"
-uuid = "*"
+uuid = { version = "*", features = ["serde", "v4"] }
 
 [build-dependencies]
 lalrpop = { version = "*", features = ["lexer"] }

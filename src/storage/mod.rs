@@ -25,6 +25,8 @@ use std::primitive::u32;
 
 use super::errors;
 
+mod utils;
+
 // Magic number used to identify a valid volume header block
 const VOLUME_HEADER_FORMAT_MAGIC: u32 = 0xCA78;
 
@@ -40,9 +42,19 @@ const DEFAULT_VOLUME_BLOCK_SIZE: usize = 4096;
 // We won't allow going above 256 KiB per block
 const MAX_VOLUME_BLOCK_SIZE: usize = 256 * 1024;
 
+// The minimum number of blocks in order to create a valid volume
+// We need a header block and two file tables and the initial allocation bitmap
+// The file tables require each 
+// (FILE_TABLE_NUM_RESERVED * FILE_HEADER_SIZE) / BLOCK_SIZE many blocks
+// The allocation bitmap can be stored inline for small volumes
+//
+// TODO: This needs to be revised once we add journaling
+const MIN_VOLUME_BLOCK_COUNT: usize = 16;
+
 // The data structure located in the first block of a storage volume that describes
 // the information needed to access the file system
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+#[repr(C)]
 struct VolumeHeader {
     format_magic: u32,          // file format identifier (VOLUME_HEADER_FORMAT_MAGIC)
     format_version: u32,        // file format revision (VOLUME_HEADER_FORMAT_VERSION)
@@ -58,53 +70,103 @@ struct VolumeHeader {
 
 // Index of the file table file header within the file table itself
 const FILE_TABLE_INDEX_FILE_TABLE: usize = 0;
+const FILE_TABLE_NAME_FILE_TABLE: &str = "$file_table_0";
 
 // Index of the file table mirror file header within the file table
 const FILE_TABLE_INDEX_FILE_TABLE_MIRROR: usize = 1;
+const FILE_TABLE_NAME_FILE_TABLE_MIRROR: &str = "$file_table_1";
 
 // Index of the block allocation bitmap file header in the file table
 const FILE_TABLE_INDEX_ALLOCATION_BITMAP: usize = 2;
+const FILE_TABLE_NAME_ALLOCATION_BITMAP: &str = "$allocation_bitmap";
 
 // Index of the journal file header in the file table
 const FILE_TABLE_INDEX_JOURNAL: usize = 3;
+const FILE_TABLE_NAME_JOURNAL: &str = "$journal";
 
 // Index of the volume header block seen as entry in the file table
 const FILE_TABLE_INDEX_VOLUME_HEADER: usize = 4;
+const FILE_TABLE_NAME_VOLUME_HEADER: &str = "$volume_header";
 
 // Number of reserved entries in the file header table; this is the index of the first user file
 const FILE_TABLE_NUM_RESERVED: usize = 16;
 
 // The file header data structure describes an entry in the file table
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+#[repr(C)]
 struct FileHeader {
-    file_header_type: u32,      // discriminator value for this file table entry
-    version: u32,               // a version number that is incremented each time the entry is
-                                // updated. Used for recovery.
-    timestamp_created: u64,     // time of creation, 48 bits for seconds, 16 bits for subsecond
-    timestamp_modified: u64,    // time of last modofication, 48 bits for seconds, 16 bit subsecond
-    blocks_allocated: u32,      // number of number of allocated disk blocks; this will also 
-                                // determine the level of indirection
-    blocks_used: u32,           // number of blocks actually in use, always less than or equal
-                                // to the amount provided by allocation
-    last_block_use: u32,        // number of bytes used in the last block
-    filename_length: u8,        // length of the file name, in bytes, followed by the UTF-8 
-                                // encoded file name byte sequence
+    // discriminator value for this file table entry
+    file_header_type: u32,      
+
+    // a version number that is incremented each time the entry is updated. Used for recovery.
+    version: u32,               
+
+    // time of creation, 48 bits for seconds, 16 bits for subsecond
+    timestamp_created: u64,     
+
+    // time of last modofication, 48 bits for seconds, 16 bit subsecond
+    timestamp_modified: u64,    
+
+    // number of number of allocated disk blocks; this will also determine the level of indirection
+    blocks_allocated: u32,      
+                                
+    // number of blocks actually in use, always less than or equal to the amount provided by allocation
+    blocks_used: u32,           
+    
+    // number of bytes used in the last block
+    last_block_use: u32,        
 }
 
 // Size of a file header record
-const DEFAULT_FILE_HEADER_RECORD_SIZE: usize = 1024;
+const DEFAULT_LOG_FILE_HEADER_RECORD_SIZE: usize = 10;
 
 // Minimum size of a file header record; because we allow up to 255 bytes for the file name
-const MIN_FILE_HEADER_RECORD_SIZE: usize = 512;
+const MIN_LOG_FILE_HEADER_RECORD_SIZE: usize = 9;
 
 // Maximum length of a valid file name
 const MAX_FILE_NAME_LENGTH: usize = 0xff;
 
 // File header type associated with an unused entry
-const FILE_HEADER_TYPE_UNUSED: u16 = 0;
+const FILE_HEADER_TYPE_UNUSED: u32 = 0;
 
 // File header type associated with a regular file
-const FILE_HEADER_TYPE_FILE: u16 = 1;
+const FILE_HEADER_TYPE_FILE: u32 = 1;
+
+// File header type associated with a reserved file header entry
+const FILE_HEADER_TYPE_RESERVED: u32 = 0xffff;
+
+//
+// File attributes are identified by a 16-bit value identifying the kind of attribute
+// Attributes are aligned to 16-bits (2 bytes)
+//
+
+// End of attribute list marker
+const FILE_ATTRIBUTE_LIST_END: u16 = 0u16;
+
+// Field code for file name encoded as UTF-8 byte string. The field is followed by an u8 value providing the length
+// of the string, followed by the UTF-8 byte sequence
+const FILE_ATTRIBUTE_NAME: u16 = 1u16;
+
+// Field code for a list of extents is 0x1X. The low nibble encodes the levels of indirection.
+// If it is 0, then the attribute includes a list of extents.
+// If it is 1, then the attribute includes a list of (block ptr, num_blocks) entries, where each block contains
+//  a list of extents. num_blocks aggregates the total number of blocks up to the end of the block pointed to in order
+//  to allow for binary search
+// And so forth for higher levels of indirection.
+// This attribute code is followed by the number of entries in the extent list following as u16
+// If necessary, padding to align to 32 bit, which is the alignment for block pointers and block counts
+const FILE_ATTRIBUTE_EXTENT_LIST: u16 = 0x10u16;
+
+// Representation of an extent
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+#[repr(C)]
+struct Extent {
+    // block index of the first block of this extent
+    block_pointer: u32,
+
+    // number of blocks that are part of the extent
+    num_blocks: u32
+}
 
 /// Representation of a mounted disk volume
 pub struct Volume {
@@ -116,23 +178,39 @@ pub struct Volume {
     file: Option<async_std::fs::File>,
 
     // a copy of the deserialized volume header
-    header: VolumeHeader
+    header: VolumeHeader,
+
+    // the index used to identify the volume internally,
+    index: VolumeIndex,
 }
 
+/// VolumeParameters are used to describe the different size parameters needed to create a data volume
+#[derive(Serialize, Deserialize, Debug)]
+#[repr(C)]
 pub struct VolumeParameters {
-    volume_size: u64,           // total size of storage volume
-    log_block_size: u16,        // log_2(volume block size)
-    log_file_header_size: u16,  // log_2(file header size); less or equal to log_block_size
+    // total size of storage volume
+    pub volume_size: u64,           
+
+    // log_2(volume block size)
+    pub log_block_size: u16,       
+
+    // log_2(file header size); less or equal to log_block_size
+    pub log_file_header_size: u16,  
 }
 
 impl VolumeParameters {
     pub fn new_with_defaults(volume_size: u64) -> VolumeParameters {
+        const LOG_BLOCK_SIZE: u64 = (32 - (DEFAULT_VOLUME_BLOCK_SIZE as u32).leading_zeros()) as u64;
+
+        let block_size = 1u64 << LOG_BLOCK_SIZE;
+
+        assert!(volume_size % block_size == 0 && volume_size / block_size >= 1);
+        assert!(volume_size / block_size <= (u32::MAX as u64) + 1);
+
         VolumeParameters {
             volume_size,
-            log_block_size: 
-                (32 - (DEFAULT_VOLUME_BLOCK_SIZE as u32).leading_zeros()) as u16,
-            log_file_header_size: 
-                (32 - (DEFAULT_FILE_HEADER_RECORD_SIZE as u32).leading_zeros()) as u16,
+            log_block_size: LOG_BLOCK_SIZE as u16,
+            log_file_header_size: DEFAULT_LOG_FILE_HEADER_RECORD_SIZE as u16,
         }
     }
 }
@@ -176,8 +254,81 @@ impl Location {
     }
 } 
 
+fn init_file_header(buffer: &mut [u8], filename: &str, initial_size: u64, initial_extent: Extent, block_size: u64) {
+    let blocks_used = ((initial_size + block_size - 1) / block_size) as u32;
+    let last_block_use = (initial_size % block_size) as u32;
+    let now = std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH).unwrap();
+    let seconds = now.as_secs();
+    let nanos = now.subsec_nanos(); 
+    // subsec_nanos should return a 30 bit value
+    assert!(nanos & 0xC000 == 0);
+    let timestamp = (seconds << 16) | (nanos as u64 >> 14);
+
+    let file_header = FileHeader {
+        file_header_type: FILE_HEADER_TYPE_FILE,      
+        version: 1u32,               
+        timestamp_created: timestamp,     
+        timestamp_modified: timestamp,    
+        blocks_allocated: initial_extent.num_blocks,      
+        blocks_used,           
+        last_block_use,       
+    };
+
+    let file_header_size = std::mem::size_of::<FileHeader>();
+
+    unsafe {
+        let file_header_slice = crate::common::any_as_u8_slice(&file_header);
+        buffer.copy_from_slice(&file_header_slice);
+    }
+
+    // append file name
+    let mut offset = utils::align_usize(file_header_size, std::mem::size_of::<u16>());
+    assert!(offset < buffer.len());
+
+    unsafe {
+        let attribute_slice = &mut buffer[offset..];
+        let attribute_pointer = attribute_slice.as_mut_ptr() as *mut u16;
+        *attribute_pointer = FILE_ATTRIBUTE_NAME;
+        let name_length_pointer = attribute_slice.as_mut_ptr().add(std::mem::size_of::<u16>());
+        assert!(filename.len() <= u8::MAX as usize);
+        *name_length_pointer = filename.len() as u8;
+        let name_slice = &mut buffer[offset + 3..];
+        name_slice.copy_from_slice(filename.as_bytes());
+        offset = offset + 3 + filename.len();
+    }
+    
+    // append extent list
+    offset = utils::align_usize(offset, std::mem::size_of::<u16>());
+    assert!(offset < buffer.len());
+
+    unsafe {
+        let attribute_slice = &mut buffer[offset..];
+        let attribute_pointer = attribute_slice.as_mut_ptr() as *mut u16;
+        *attribute_pointer = FILE_ATTRIBUTE_EXTENT_LIST;
+        let list_length_pointer = attribute_slice.as_mut_ptr().add(std::mem::size_of::<u16>()) as *mut u16;
+        *list_length_pointer = 1u16;
+        let extent_offset = utils::align_usize(offset + std::mem::size_of::<u16>() * 2, std::mem::size_of::<u32>());
+        let extent_pointer = attribute_slice.as_mut_ptr().add(extent_offset) as *mut Extent;
+        *extent_pointer = initial_extent;
+        offset = extent_offset + std::mem::size_of::<Extent>();
+    }
+
+    // append end of attributes
+    offset = utils::align_usize(offset, std::mem::size_of::<u16>());
+    assert!(offset < buffer.len());
+
+    unsafe {
+        let attribute_slice = &mut buffer[offset..];
+        let attribute_pointer = attribute_slice.as_mut_ptr() as *mut u16;
+        *attribute_pointer = FILE_ATTRIBUTE_LIST_END;
+    }
+}
+
 /// The volume manager is a mapping of all currently mounted storage volumes
 pub struct VolumeManager {
+    // buffer pool used to map volume data
+    buffer_pool: std::sync::Weak<BufferPool>,
+
     // references to all the currently mounted volumes; entries may be None if we have
     // unmounted a volume before but have not re-used the index yet.
     volumes: Vec<Option<Volume>>,
@@ -192,10 +343,16 @@ pub struct VolumeManager {
 impl VolumeManager {
     fn new(buffer_pool: &BufferPool) -> VolumeManager {
         VolumeManager {
+            buffer_pool: std::sync::Weak::new(),
             volumes: Vec::with_capacity(10),
             next_volume: VolumeIndex(0),
             num_mounted_volumes: 0
         }
+    }
+
+    // set the buffer pool used to hold data to read from and write to the attached volumes
+    fn set_buffer_pool(&mut self, buffer_pool: &std::sync::Arc<BufferPool>) {
+        self.buffer_pool = std::sync::Arc::downgrade(buffer_pool);
     }
 
     // generate an internal identifier for the volume to create or attach
@@ -213,11 +370,125 @@ impl VolumeManager {
 
     // Create a new volume file using the provided volume parameters
     async fn create(&mut self, path: &Path, parameters: &VolumeParameters) -> std::io::Result<VolumeIndex> {
-        unimplemented!()
+        use async_std::os::unix::fs::OpenOptionsExt;
+
+        let block_size = 1u64 << parameters.log_block_size;
+        let file_header_size = 1u64 << parameters.log_file_header_size;
+        let file_table_offset = 1u64 << parameters.log_block_size;
+        let file_table_size = file_header_size * FILE_TABLE_NUM_RESERVED as u64; 
+        let file_table_blocks = (file_table_size + block_size - 1) / block_size;
+        let file_table_mirror_offset = file_table_offset + (file_table_blocks * block_size) as u64;
+        // the file table mirror has the same size as the file table offset
+        let allocation_bitmap_offset = file_table_mirror_offset + file_table_blocks as u64;
+
+        // should hold, because we require the volume size to be an integer multiple of the block size
+        assert!(parameters.volume_size % 8 == 0);
+        let allocation_bitmap_size = parameters.volume_size / 8;
+        let allocation_bitmap_blocks = utils::calc_file_blocks(allocation_bitmap_size, block_size);
+
+        // create the file; we are using create_new to avoid accidentally overwriting a previous file
+        let file = async_std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .custom_flags(libc::O_DIRECT)
+            .open(path)
+            .await?;
+
+        // set the file to size specified
+        file.set_len(parameters.volume_size).await?;
+
+        // create the UUID and populate the volume header structure
+        let volume_header = VolumeHeader {
+            format_magic: VOLUME_HEADER_FORMAT_MAGIC,
+            format_version: VOLUME_HEADER_FORMAT_VERSION,
+        
+            uuid: uuid::Uuid::new_v4().as_bytes().clone(),
+        
+            volume_size: parameters.volume_size,
+            log_block_size: parameters.log_block_size,
+            log_file_header_size: parameters.log_file_header_size,
+
+            file_table_offset,
+        };        
+
+        // Keep a copy for building the header block
+        let volume_header_copy = volume_header.clone();
+
+        // TODO: Adjust errors; using NotFound as proxy for out of identifiers
+        let index = self.next_volume().map_err(|_| std::io::Error::from(std::io::ErrorKind::NotFound))?;
+
+        // register the volume file with a new index
+        let volume = Volume {
+            path: PathBuf::from(path),
+            file: Some(file),
+            header: volume_header,
+            index
+        };
+
+        assert!(self.volumes.len() == index.0 as usize);
+        self.volumes.push(Some(volume));
+        let buffer_pool = self.buffer_pool.upgrade().unwrap();
+
+        // create the header block
+        {
+            let volume_header_block_location = Location::new(index, 0u64);
+            let mut handle = buffer_pool.access_read_write(volume_header_block_location).await;
+            let buffer = handle.buffer_mut();
+            assert!(buffer.len() >= std::mem::size_of::<VolumeHeader>());
+
+            unsafe {
+                let header_data = crate::common::any_as_u8_slice(&volume_header_copy);
+                buffer.copy_from_slice(header_data);
+            }
+
+            handle.release().await;
+        }
+
+        // create file table 
+        {
+            let volume_header_block_location = Location::new(index, block_size as u64);
+            let mut handle = buffer_pool.access_read_write(volume_header_block_location).await;
+
+            // offset within the block
+            let mut offset = 0usize;
+            let buffer_mut = handle.buffer_mut();
+            let entry = &mut buffer_mut[offset .. offset + (file_header_size as usize)];
+            let extent = Extent {
+                block_pointer: (file_table_offset / block_size) as u32,
+                num_blocks: file_table_blocks as u32
+            };
+
+            init_file_header(entry, FILE_TABLE_NAME_FILE_TABLE, file_table_size, extent, block_size);
+
+            handle.release().await;
+        }
+
+        // create file table mirror
+        {
+
+        }
+        
+        // create the initial allocation bitmap
+        {
+            
+        }
+
+        Ok(index)
     }
 
     // Mount a previously created volume file
     async fn mount(&mut self, path: &Path) -> std::io::Result<VolumeIndex> {
+        use async_std::os::unix::fs::OpenOptionsExt;
+
+        // open the file; ensure we fail if it does not exist yet
+        let file = async_std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .custom_flags(libc::O_DIRECT)
+            .open(path)
+            .await?;
+
         unimplemented!()
     }
 
@@ -455,6 +726,7 @@ impl BufferPool {
     }
 
     // Provide read-only access to a buffer 
+    // TODO: Update return type to a form of Result<T, E>
     async fn access_read_only<'a>(&'a self, location: Location) -> ReadOnlyBufferHandle<'a> {
         let (index, lock_ptr, init_lock) = self.buffer_access(location).await;
 
@@ -478,6 +750,7 @@ impl BufferPool {
     }
 
     // Provide read-write access to a buffer 
+    // TODO: Update return type to a form of Result<T, E>
     async fn access_read_write<'a>(&'a self, location: Location) -> ReadWriteBufferHandle<'a> {
         let (index, lock_ptr, init_lock) = self.buffer_access(location).await;
 
@@ -501,6 +774,7 @@ impl BufferPool {
     }
 
     // Provide read-write access to a buffer without necessarily restoring previous content
+    // TODO: Update return type to a form of Result<T, E>
     async fn access_initialize<'a>(&'a self, location: Location) -> ReadWriteBufferHandle<'a> {
         let (index, lock_ptr, init_lock) = self.buffer_access(location).await;
 

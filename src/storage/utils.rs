@@ -20,13 +20,30 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-//! `common` is a module collecting utility types and functions that are shared
-//! across components inside a Cathlamet cluster.
+pub (crate) fn calc_file_blocks(file_size: u64, block_size: u64) -> u64 {
+    (file_size + block_size - 1) / block_size
+}
 
-// Interpret a type as &[u8]
-pub (crate) unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
-    ::std::slice::from_raw_parts(
-        (p as *const T) as *const u8,
-        ::std::mem::size_of::<T>(),
-    )
+pub (crate) fn align_usize(value: usize, alignment: usize) -> usize {
+    (value + alignment - 1) & !(alignment - 1)
+}
+
+pub (crate) fn align_u8(value: u8, alignment: u8) -> u8 {
+    (value + alignment - 1) & !(alignment - 1)
+}
+
+pub (crate) fn align_u16(value: u16, alignment: u16) -> u16 {
+    (value + alignment - 1) & !(alignment - 1)
+}
+
+pub (crate) fn align_u32(value: u32, alignment: u32) -> u32 {
+    (value + alignment - 1) & !(alignment - 1)
+}
+
+pub (crate) fn align_u64(value: u64, alignment: u64) -> u64 {
+    (value + alignment - 1) & !(alignment - 1)
+}
+
+pub (crate) fn align_u128(value: u128, alignment: u128) -> u128 {
+    (value + alignment - 1) & !(alignment - 1)
 }
