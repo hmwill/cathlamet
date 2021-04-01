@@ -254,7 +254,24 @@ impl Location {
     }
 } 
 
-fn init_file_header(buffer: &mut [u8], filename: &str, initial_size: u64, initial_extent: Extent, block_size: u64) {
+async fn init_file_header(buffer_pool: &std::sync::Arc<BufferPool>,
+    volume_index: VolumeIndex, base_offset: u64, file_table_index: usize,
+    filename: &str, initial_size: u64, initial_extent: Option<Extent>, 
+    parameters: &VolumeParameters) {
+
+    let block_size = 1u64 << parameters.log_block_size;
+    let file_header_size = 1u64 << parameters.log_file_header_size;
+    let file_table_offset = 1u64 << parameters.log_block_size;
+
+    let location_offset = base_offset + ((file_table_index as u64 * file_header_size) / block_size) * block_size;
+    let offset = ((file_table_index as u64 * file_header_size) % block_size) as usize;
+
+    let volume_header_block_location = Location::new(volume_index, location_offset);
+    let mut handle = buffer_pool.access_read_write(volume_header_block_location).await;
+
+    // offset within the block
+    let buffer = &mut handle.buffer_mut()[offset .. offset + (file_header_size as usize)];
+
     let blocks_used = ((initial_size + block_size - 1) / block_size) as u32;
     let last_block_use = (initial_size % block_size) as u32;
     let now = std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH).unwrap();
@@ -269,7 +286,7 @@ fn init_file_header(buffer: &mut [u8], filename: &str, initial_size: u64, initia
         version: 1u32,               
         timestamp_created: timestamp,     
         timestamp_modified: timestamp,    
-        blocks_allocated: initial_extent.num_blocks,      
+        blocks_allocated: initial_extent.map_or(0, |e| e.num_blocks),      
         blocks_used,           
         last_block_use,       
     };
@@ -301,16 +318,19 @@ fn init_file_header(buffer: &mut [u8], filename: &str, initial_size: u64, initia
     offset = utils::align_usize(offset, std::mem::size_of::<u16>());
     assert!(offset < buffer.len());
 
-    unsafe {
-        let attribute_slice = &mut buffer[offset..];
-        let attribute_pointer = attribute_slice.as_mut_ptr() as *mut u16;
-        *attribute_pointer = FILE_ATTRIBUTE_EXTENT_LIST;
-        let list_length_pointer = attribute_slice.as_mut_ptr().add(std::mem::size_of::<u16>()) as *mut u16;
-        *list_length_pointer = 1u16;
-        let extent_offset = utils::align_usize(offset + std::mem::size_of::<u16>() * 2, std::mem::size_of::<u32>());
-        let extent_pointer = attribute_slice.as_mut_ptr().add(extent_offset) as *mut Extent;
-        *extent_pointer = initial_extent;
-        offset = extent_offset + std::mem::size_of::<Extent>();
+    match initial_extent {
+        Some(initial_extent) => unsafe {
+            let attribute_slice = &mut buffer[offset..];
+            let attribute_pointer = attribute_slice.as_mut_ptr() as *mut u16;
+            *attribute_pointer = FILE_ATTRIBUTE_EXTENT_LIST;
+            let list_length_pointer = attribute_slice.as_mut_ptr().add(std::mem::size_of::<u16>()) as *mut u16;
+            *list_length_pointer = 1u16;
+            let extent_offset = utils::align_usize(offset + std::mem::size_of::<u16>() * 2, std::mem::size_of::<u32>());
+            let extent_pointer = attribute_slice.as_mut_ptr().add(extent_offset) as *mut Extent;
+            *extent_pointer = initial_extent;
+            offset = extent_offset + std::mem::size_of::<Extent>();
+        },
+        None => assert!(initial_size == 0)
     }
 
     // append end of attributes
@@ -322,6 +342,8 @@ fn init_file_header(buffer: &mut [u8], filename: &str, initial_size: u64, initia
         let attribute_pointer = attribute_slice.as_mut_ptr() as *mut u16;
         *attribute_pointer = FILE_ATTRIBUTE_LIST_END;
     }
+
+    handle.release().await;
 }
 
 /// The volume manager is a mapping of all currently mounted storage volumes
@@ -382,9 +404,16 @@ impl VolumeManager {
         let allocation_bitmap_offset = file_table_mirror_offset + file_table_blocks as u64;
 
         // should hold, because we require the volume size to be an integer multiple of the block size
-        assert!(parameters.volume_size % 8 == 0);
-        let allocation_bitmap_size = parameters.volume_size / 8;
+        assert!(parameters.volume_size % block_size == 0);
+        let allocation_bitmap_size_bits = parameters.volume_size / block_size;
+        let allocation_bitmap_size = utils::align_u64(allocation_bitmap_size_bits, 8u64) >> 3;
         let allocation_bitmap_blocks = utils::calc_file_blocks(allocation_bitmap_size, block_size);
+
+        // current total of allocated blocks
+        let total_allocated_blocks =
+            1 + // volume header block
+            file_table_blocks * 2 +
+            allocation_bitmap_blocks;
 
         // create the file; we are using create_new to avoid accidentally overwriting a previous file
         let file = async_std::fs::OpenOptions::new()
@@ -447,31 +476,132 @@ impl VolumeManager {
 
         // create file table 
         {
-            let volume_header_block_location = Location::new(index, block_size as u64);
-            let mut handle = buffer_pool.access_read_write(volume_header_block_location).await;
-
-            // offset within the block
-            let mut offset = 0usize;
-            let buffer_mut = handle.buffer_mut();
-            let entry = &mut buffer_mut[offset .. offset + (file_header_size as usize)];
+            // File table 0
             let extent = Extent {
                 block_pointer: (file_table_offset / block_size) as u32,
                 num_blocks: file_table_blocks as u32
             };
 
-            init_file_header(entry, FILE_TABLE_NAME_FILE_TABLE, file_table_size, extent, block_size);
+            init_file_header(&buffer_pool, index, file_table_offset, 
+                FILE_TABLE_INDEX_FILE_TABLE, FILE_TABLE_NAME_FILE_TABLE, 
+                file_table_size, Some(extent), 
+                parameters).await;
 
-            handle.release().await;
+            // File table 1
+            let extent = Extent {
+                block_pointer: (file_table_mirror_offset / block_size) as u32,
+                num_blocks: file_table_blocks as u32
+            };
+
+            init_file_header(&buffer_pool, index, file_table_offset, 
+                FILE_TABLE_INDEX_FILE_TABLE_MIRROR, FILE_TABLE_NAME_FILE_TABLE_MIRROR, 
+                file_table_size, Some(extent), 
+                parameters).await;
+                
+
+            // Allocation
+            let extent = Extent {
+                block_pointer: (allocation_bitmap_offset / block_size) as u32,
+                num_blocks: allocation_bitmap_blocks as u32
+            };
+
+            init_file_header(&buffer_pool, index, file_table_offset, 
+                FILE_TABLE_INDEX_ALLOCATION_BITMAP, FILE_TABLE_NAME_ALLOCATION_BITMAP, 
+                allocation_bitmap_size, Some(extent), 
+                parameters).await;
+                
+
+            // Journal
+            init_file_header(&buffer_pool, index, file_table_offset, 
+                FILE_TABLE_INDEX_JOURNAL, FILE_TABLE_NAME_JOURNAL, 
+                0, None, 
+                parameters).await;
+                
+
+            // Volume header
+            let extent = Extent {
+                block_pointer: 0 as u32,
+                num_blocks: 1 as u32
+            };
+
+            init_file_header(&buffer_pool, index, file_table_offset, 
+                FILE_TABLE_INDEX_VOLUME_HEADER, FILE_TABLE_NAME_VOLUME_HEADER, 
+                block_size, Some(extent), 
+                parameters).await;
+                
+            // Reserved files
+            for file_table_index in FILE_TABLE_INDEX_VOLUME_HEADER + 1 .. FILE_TABLE_NUM_RESERVED {
+                let filename = format!("$reserved_{}", file_table_index);
+
+                init_file_header(&buffer_pool, index, file_table_offset, 
+                    file_table_index, &filename, 
+                    0, None, 
+                    parameters).await;
+                }
         }
 
-        // create file table mirror
+        // create file table mirror; do this by copying buffers
         {
+            for block_number in 0 .. file_table_blocks {
+                let source_location = Location::new(index, file_table_offset + block_number * block_size);
+                let mut source_handle = buffer_pool.access_read_only(source_location).await;
+                let dest_location = Location::new(index, file_table_mirror_offset + block_number * block_size);
+                let mut dest_handle = buffer_pool.access_read_write(dest_location).await;
 
+                let source = source_handle.buffer_ref();
+                let dest = dest_handle.buffer_mut();
+                dest.copy_from_slice(source);
+
+                dest_handle.release().await;
+                source_handle.release().await;
+            }
         }
         
         // create the initial allocation bitmap
         {
-            
+            let mut bit_index = 0u64;
+            let bits_per_block = block_size * 8;
+            let bits_per_word = 128;
+            let number_of_words = bits_per_block / bits_per_word;
+
+            for block_number in 0 .. allocation_bitmap_blocks {
+                let location = Location::new(index, allocation_bitmap_offset + block_number * block_size);
+                let mut handle = buffer_pool.access_read_write(location).await;
+                let buffer = handle.buffer_mut();
+
+                // the logic here could surely be optimized by moving the conditions out of the for-loop
+                // and creating more cases, but for now we are going for simplicity
+                for word_index in 0 .. number_of_words as usize {
+                    const ALL_ONES: u128 = !0u128;
+                    
+                    let mask_left = 
+                        if total_allocated_blocks >= bit_index  && 
+                            total_allocated_blocks < bit_index + bits_per_word {
+                            ALL_ONES << (total_allocated_blocks - bit_index) as u32
+                        } else {
+                            ALL_ONES
+                        };
+
+                    let mask_right = 
+                        if allocation_bitmap_size_bits >= bit_index  && 
+                        allocation_bitmap_size_bits < bit_index + bits_per_word {
+                            ALL_ONES >> (allocation_bitmap_size_bits - bit_index) as u32
+                        } else {
+                            ALL_ONES
+                        };
+
+                    let mask = mask_left & mask_right;
+
+                    unsafe {
+                        let mask_pointer = buffer.as_mut_ptr().add(word_index * std::mem::size_of::<u128>()) as *mut u128;
+                        *mask_pointer = mask;
+                    };
+
+                    bit_index = bit_index + bits_per_word;
+                }
+
+                handle.release().await;
+           }
         }
 
         Ok(index)
