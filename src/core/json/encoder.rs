@@ -81,13 +81,13 @@ fn write_ch(writer: &mut dyn io::Write, value: char) -> io::Result<()> {
 }
 
 fn emit_utf8_string(writer: &mut dyn io::Write, string: &str) -> io::Result<()> {
-    writer.write("\"".as_bytes())?;
+    writer.write_all("\"".as_bytes())?;
 
     for ch in string.chars() {
         write_ch(writer, ch)?;
     }
 
-    writer.write("\"".as_bytes())?;
+    writer.write_all("\"".as_bytes())?;
     Ok(())
 }
 
@@ -100,7 +100,7 @@ struct EmitUnit {}
 
 impl JsonEmitter for EmitUnit {
     fn emit(&self, writer: &mut dyn io::Write, _: &dyn DataSource) -> io::Result<()> {
-        writer.write("null".as_bytes())?;
+        writer.write_all("null".as_bytes())?;
         Ok(())
     }
 }
@@ -111,20 +111,20 @@ struct EmitTuple {
 
 impl JsonEmitter for EmitTuple {
     fn emit(&self, writer: &mut dyn io::Write, source: &dyn DataSource) -> io::Result<()> {
-        writer.write("[".as_bytes())?;
+        writer.write_all("[".as_bytes())?;
 
         let mut first = true;
         for field in &self.components {
             if first {
                 first = false
             } else {
-                writer.write(",".as_bytes())?;
+                writer.write_all(",".as_bytes())?;
             }
 
             field.emit(writer, source)?;
         }
 
-        writer.write("]".as_bytes())?;
+        writer.write_all("]".as_bytes())?;
         Ok(())
     }
 }
@@ -135,22 +135,22 @@ struct EmitStruct {
 
 impl JsonEmitter for EmitStruct {
     fn emit(&self, writer: &mut dyn io::Write, source: &dyn DataSource) -> io::Result<()> {
-        writer.write("{".as_bytes())?;
+        writer.write_all("{".as_bytes())?;
 
         let mut first = true;
         for (ref name, ref field) in &self.fields {
             if first {
                 first = false
             } else {
-                writer.write(",".as_bytes())?;
+                writer.write_all(",".as_bytes())?;
             }
 
             emit_utf8_string(writer, name.as_str())?;
-            writer.write(":".as_bytes())?;
+            writer.write_all(":".as_bytes())?;
             field.emit(writer, source)?;
         }
 
-        writer.write("}".as_bytes())?;
+        writer.write_all("}".as_bytes())?;
         Ok(())
     }
 }
@@ -162,13 +162,13 @@ struct EmitEnum {
 
 impl JsonEmitter for EmitEnum {
     fn emit(&self, writer: &mut dyn io::Write, source: &dyn DataSource) -> io::Result<()> {
-        writer.write("{\"kind\":".as_bytes())?;
+        writer.write_all("{\"kind\":".as_bytes())?;
 
         let case_tag = source.get_case_tag(&self.path);
         emit_utf8_string(writer, self.cases[case_tag].0.as_str())?;
-        writer.write(",\"value\":".as_bytes())?;
+        writer.write_all(",\"value\":".as_bytes())?;
         self.cases[case_tag].1.emit(writer, source)?;
-        writer.write("}".as_bytes())?;
+        writer.write_all("}".as_bytes())?;
         Ok(())
     }
 }
@@ -194,9 +194,9 @@ impl JsonEmitter for EmitBoolean {
         let value: bool = source.get_bool(&self.path);
 
         if value {
-            writer.write("true".as_bytes())?;
+            writer.write_all("true".as_bytes())?;
         } else {
-            writer.write("false".as_bytes())?;
+            writer.write_all("false".as_bytes())?;
         }
 
         Ok(())
@@ -209,9 +209,9 @@ struct EmitChar {
 
 impl JsonEmitter for EmitChar {
     fn emit(&self, writer: &mut dyn io::Write, source: &dyn DataSource) -> io::Result<()> {
-        writer.write("\"".as_bytes())?;
+        writer.write_all("\"".as_bytes())?;
         write_ch(writer, source.get_char(&self.path))?;
-        writer.write("\"".as_bytes())?;
+        writer.write_all("\"".as_bytes())?;
         Ok(())
     }
 }
