@@ -4,3 +4,4 @@ Cargo.lock
 src/core/types/parser.rs
 **/*.bak
 .vscode
+clippy.err
