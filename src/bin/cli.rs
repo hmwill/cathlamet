@@ -29,7 +29,7 @@
 extern crate cathlamet;
 extern crate clap;
 
-use clap::{App, Arg, SubCommand};
+use clap::{App};
 
 fn main() {
     let _matches = App::new("CLI")
