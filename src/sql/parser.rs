@@ -1,4 +1,4 @@
-// auto-generated: "lalrpop 0.19.5"
+// auto-generated: "lalrpop 0.19.8"
 // sha3: f07b7b47a234d3ec455d58d940e87f91caed3ef7e8b156e9294fa4968754242f
 use super::ast;
 use super::symbols;
@@ -11,7 +11,7 @@ extern crate alloc;
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
 mod __parse__SqlStatement {
-    #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports, unused_parens)]
+    #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports, unused_parens, clippy::all)]
 
     use super::super::ast;
     use super::super::symbols;
@@ -7432,8 +7432,8 @@ pub use self::__parse__SqlStatement::SqlStatementParser;
 #[cfg_attr(rustfmt, rustfmt_skip)]
 mod __intern_token {
     #![allow(unused_imports)]
-    use super::ast;
-    use super::symbols;
+    use super::super::ast;
+    use super::super::symbols;
     #[allow(unused_extern_crates)]
     extern crate lalrpop_util as __lalrpop_util;
     #[allow(unused_imports)]
@@ -7442,7 +7442,7 @@ mod __intern_token {
     extern crate alloc;
     pub fn new_builder() -> __lalrpop_util::lexer::MatcherBuilder {
         let __strs: &[(&str, bool)] = &[
-            ("^(\'[ -\\&\\(-\\~\u{80}-\u{10ffff}]*\')", false),
+            ("^('[ -\\&\\(-\\~\u{80}-\u{10ffff}]*')", false),
             ("^(0x[0-9A-Fa-f]+)", false),
             ("^([0-9]+(\\.[0-9]*)?(E[\\+\\-]?[0-9]+)?)", false),
             ("^([A-Z_a-z][0-9A-Z_a-z]*)", false),
@@ -11957,16 +11957,19 @@ fn __action263<
     )
 }
 
-pub trait __ToTriple<'input, > {
+pub trait __ToTriple<'input, >
+{
     fn to_triple(value: Self) -> Result<(usize,Token<'input>,usize), __lalrpop_util::ParseError<usize, Token<'input>, &'static str>>;
 }
 
-impl<'input, > __ToTriple<'input, > for (usize, Token<'input>, usize) {
+impl<'input, > __ToTriple<'input, > for (usize, Token<'input>, usize)
+{
     fn to_triple(value: Self) -> Result<(usize,Token<'input>,usize), __lalrpop_util::ParseError<usize, Token<'input>, &'static str>> {
         Ok(value)
     }
 }
-impl<'input, > __ToTriple<'input, > for Result<(usize, Token<'input>, usize), &'static str> {
+impl<'input, > __ToTriple<'input, > for Result<(usize, Token<'input>, usize), &'static str>
+{
     fn to_triple(value: Self) -> Result<(usize,Token<'input>,usize), __lalrpop_util::ParseError<usize, Token<'input>, &'static str>> {
         match value {
             Ok(v) => Ok(v),
