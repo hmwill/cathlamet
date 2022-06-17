@@ -32,10 +32,10 @@ extern crate clap;
 use clap::{App, Arg, SubCommand};
 
 fn main() {
-    let _matches = App::new("Master")
+    let _matches = App::new("Coordinator")
         .version(cathlamet::VERSION)
         .author(cathlamet::AUTHOR)
         .about(cathlamet::DESCRIPTION)
         .get_matches();
-    println!("Cathlamet Master Node");
+    println!("Cathlamet Coordinator Node");
 }
