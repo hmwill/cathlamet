@@ -1,5 +1,5 @@
 [package]
-edition = "2018"
+edition = "2021"
 name = "cathlamet"
 version = "0.1.0"
 authors = ["Hans-Martin Will <hwill@acm.org>"]
@@ -13,7 +13,7 @@ build = "build.rs" # LALRPOP preprocessing
 async-std = { version = "*", features = ["unstable"] }
 clap = "*"
 error-chain = "*"
-lalrpop-util = "*"
+lalrpop-util = { version = "^0.19", features = ["lexer"] }
 libc = "*"
 memmap = "*"
 serde = "*"
