@@ -574,7 +574,7 @@ mod tests {
         let mut decoder = JsonDecoder::new(&typ);
         let mut data_source = IntermediateDataSource::new();
         match decoder.parse(input, &mut data_source) {
-            Err(err) => panic!(format!("Parsing error: {}", err)),
+            Err(err) => panic!("Parsing error: {}", err),
             _ => (),
         }
 
@@ -616,7 +616,7 @@ mod tests {
         let mut data_source = IntermediateDataSource::new();
 
         match decoder.parse(input, &mut data_source) {
-            Err(err) => panic!(format!("Parsing error: {}", err)),
+            Err(err) => panic!("Parsing error: {}", err),
             _ => (),
         }
 
@@ -649,7 +649,7 @@ mod tests {
         //let none = types::Path::resolve_qualified_name(&typ, "None").unwrap();
 
         match decoder.parse(r#"{"kind":"Some","value":3.141}"#, &mut data_source) {
-            Err(err) => panic!(format!("Parsing error: {}", err)),
+            Err(err) => panic!("Parsing error: {}", err),
             _ => (),
         }
 
@@ -657,7 +657,7 @@ mod tests {
         assert_eq!(data_source.get_f64(&some), 3.141);
 
         match decoder.parse(r#"{"kind":"None","value":null}"#, &mut data_source) {
-            Err(err) => panic!(format!("Parsing error: {}", err)),
+            Err(err) => panic!("Parsing error: {}", err),
             _ => (),
         }
 
