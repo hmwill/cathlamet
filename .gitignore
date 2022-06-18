@@ -1,6 +1,5 @@
 /target
 **/*.rs.bk
-Cargo.lock
 src/core/types/parser.rs
 **/*.bak
 .vscode
