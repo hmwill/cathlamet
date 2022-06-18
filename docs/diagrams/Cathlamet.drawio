@@ -1,1 +1,58 @@
-<mxfile host="app.diagrams.net" modified="2022-06-18T06:01:42.587Z" agent="5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.5005.124 Safari/537.36 Edg/102.0.1245.41" version="20.0.1" etag="nSDILFvfZN-zsMByAaia" type="github"><diagram id="6JH0PzIQv142FpewLGLQ">UzV2zq1wL0osyPDNT0nNUTV2VTV2LsrPL4GwciucU3NyVI0MMlNUjV1UjYwMgFjVyA2HrCFY1qAgsSg1rwSLBiADYTaQg2Y1AA==</diagram></mxfile>
+<mxfile host="app.diagrams.net" modified="2022-06-18T06:09:27.980Z" agent="5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.5005.124 Safari/537.36 Edg/102.0.1245.41" etag="osrfBkrfWXA5ZBtWQXw5" version="20.0.1" type="github">
+  <diagram id="6JH0PzIQv142FpewLGLQ" name="Page-1">
+    <mxGraphModel dx="859" dy="609" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="F4LPR_H7pQYc62Ddbh9R-1" value="Storage Nodes" style="swimlane;" vertex="1" parent="1">
+          <mxGeometry x="80" y="210" width="380" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="F4LPR_H7pQYc62Ddbh9R-3" value="Storage Node 1" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="F4LPR_H7pQYc62Ddbh9R-1">
+          <mxGeometry x="20" y="50" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="F4LPR_H7pQYc62Ddbh9R-4" value="Storage Node N" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="F4LPR_H7pQYc62Ddbh9R-1">
+          <mxGeometry x="240" y="50" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="F4LPR_H7pQYc62Ddbh9R-5" value="" style="endArrow=none;dashed=1;html=1;dashPattern=1 3;strokeWidth=2;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="F4LPR_H7pQYc62Ddbh9R-1" source="F4LPR_H7pQYc62Ddbh9R-3" target="F4LPR_H7pQYc62Ddbh9R-4">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="360" y="120" as="sourcePoint" />
+            <mxPoint x="410" y="70" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="F4LPR_H7pQYc62Ddbh9R-7" value="Router Nodes" style="swimlane;" vertex="1" parent="1">
+          <mxGeometry x="80" y="60" width="380" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="F4LPR_H7pQYc62Ddbh9R-8" value="Router Node 1" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="F4LPR_H7pQYc62Ddbh9R-7">
+          <mxGeometry x="20" y="50" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="F4LPR_H7pQYc62Ddbh9R-9" value="Router Node N" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="F4LPR_H7pQYc62Ddbh9R-7">
+          <mxGeometry x="240" y="50" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="F4LPR_H7pQYc62Ddbh9R-10" value="" style="endArrow=none;dashed=1;html=1;dashPattern=1 3;strokeWidth=2;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="F4LPR_H7pQYc62Ddbh9R-7" source="F4LPR_H7pQYc62Ddbh9R-8" target="F4LPR_H7pQYc62Ddbh9R-9">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="360" y="120" as="sourcePoint" />
+            <mxPoint x="410" y="70" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="F4LPR_H7pQYc62Ddbh9R-11" value="Storage Nodes" style="swimlane;" vertex="1" parent="1">
+          <mxGeometry x="480" y="60" width="160" height="280" as="geometry" />
+        </mxCell>
+        <mxCell id="F4LPR_H7pQYc62Ddbh9R-12" value="Storage Node 1" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="F4LPR_H7pQYc62Ddbh9R-11">
+          <mxGeometry x="20" y="50" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="F4LPR_H7pQYc62Ddbh9R-13" value="Storage Node N" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="F4LPR_H7pQYc62Ddbh9R-11">
+          <mxGeometry x="20" y="200" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="F4LPR_H7pQYc62Ddbh9R-14" value="" style="endArrow=none;dashed=1;html=1;dashPattern=1 3;strokeWidth=2;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="F4LPR_H7pQYc62Ddbh9R-11" source="F4LPR_H7pQYc62Ddbh9R-12" target="F4LPR_H7pQYc62Ddbh9R-13">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="360" y="120" as="sourcePoint" />
+            <mxPoint x="410" y="70" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="F4LPR_H7pQYc62Ddbh9R-15" value="Cathlamet Cluster" style="swimlane;horizontal=0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="620" height="320" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
